@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📚 My Cloud Library</title>
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     LOGIN PAGE
+════════════════════════════════════════════════════════ -->
+<div id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="icon">📚</div>
+      <h1>My Library</h1>
+      <p>Your personal cloud reading room</p>
+    </div>
+
+    <div class="login-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="loginEmail" class="form-input" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="loginPassword" class="form-input" placeholder="••••••••" autocomplete="current-password">
+      </div>
+
+      <div class="login-error" id="loginError"></div>
+
+      <button class="btn btn-primary" onclick="handleLogin()" id="loginBtn" style="width:100%; justify-content:center; padding:13px;">
+        Sign In
+      </button>
+
+      <div class="login-divider">or</div>
+
+      <button class="btn btn-ghost" onclick="handleSignup()" id="signupBtn" style="width:100%; justify-content:center;">
+        Create Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     MAIN APP (Navbar + Library)
+════════════════════════════════════════════════════════ -->
+<div id="appPage" style="display:none;">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="nav-logo" onclick="showLibrary()" style="cursor:pointer">
+        <span>📚</span> My Library
+      </div>
+      <div class="nav-actions">
+        <div class="nav-user" id="navUserEmail"></div>
+        <div class="badge-admin" id="navAdminBadge" style="display:none">Admin</div>
+        <button class="btn btn-ghost btn-sm" id="uploadNavBtn" style="display:none" onclick="openUploadModal()">
+          ＋ Upload
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── LIBRARY VIEW ── -->
+  <div id="libraryView">
+    <div class="container">
+      <div class="library-header">
+        <div>
+          <h2>The <span>Collection</span></h2>
+          <p style="color:var(--text2); font-size:0.85rem; margin-top:4px;">Browse and read your saved books & documents</p>
+        </div>
+        <div class="library-controls">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="Search titles..." oninput="filterBooks()">
+          </div>
+          <div class="view-toggle">
+            <button onclick="setView('grid')" id="gridBtn" class="active" title="Grid view">⊞</button>
+            <button onclick="setView('list')" id="listBtn" title="List view">☰</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-bar" id="statsBar">
+        <div class="stat-item">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Books</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="statPDF">0</div>
+          <div class="stat-label">PDFs</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="statEPUB">0</div>
+          <div class="stat-label">EPUBs</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="statOther">0</div>
+          <div class="stat-label">Other</div>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
+        <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
+        <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
+      </div>
+
+      <!-- Books Container -->
+      <div id="booksGrid" class="books-grid"></div>
+      <div id="booksListView" class="books-list" style="display:none;"></div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="empty-icon">📖</div>
+        <h3>Library is empty</h3>
+        <p id="emptyMsg">No books yet. Ask an admin to upload some!</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── READER VIEW ── -->
+  <div id="readerView" style="display:none;">
+    <div class="reader-toolbar" id="desktopToolbar">
+      <button class="btn btn-ghost btn-sm" onclick="closeReader()">← Back</button>
+      <div class="reader-title" id="readerTitle">Loading...</div>
+      <div class="reader-controls">
+        <button class="btn btn-ghost btn-sm" id="prevPage" onclick="changePage(-1)" disabled>◀</button>
+        <div class="page-info" id="pageInfo">Page 1 / 1</div>
+        <button class="btn btn-ghost btn-sm" id="nextPage" onclick="changePage(1)" disabled>▶</button>
+        <button class="btn btn-ghost btn-sm" onclick="changeZoom(-0.15)">−</button>
+        <span class="page-info" id="zoomInfo">100%</span>
+        <button class="btn btn-ghost btn-sm" onclick="changeZoom(0.15)">+</button>
+        <a id="readerDownloadBtn" href="#" target="_blank" class="btn btn-ghost btn-sm">⬇️ Download</a>
+      </div>
+    </div>
+    <div class="reader-container" id="readerContainer">
+      <div class="reader-loading" id="readerLoading">
+        <div class="spinner"></div>
+        <p>Loading document...</p>
+      </div>
+      <canvas id="pdfCanvas" style="display:none; transition:opacity 0.2s;"></canvas>
+      <div id="epubReader" style="display:none; width:100%; max-width:720px; background:var(--bg2); border-radius:8px; padding:40px; line-height:1.8; font-size:1rem;"></div>
+    </div>
+    <!-- Mobile Bottom Bar -->
+    <div class="mobile-reader-bar" id="mobileReaderBar">
+      <button class="mob-btn" onclick="closeReader()">✕ Back</button>
+      <button class="mob-btn mob-nav" id="mobilePrevBtn" onclick="changePage(-1)" disabled>◀ Prev</button>
+      <div class="mob-page-info" id="mobilePageInfo">1/1</div>
+      <button class="mob-btn mob-nav" id="mobileNextBtn" onclick="changePage(1)" disabled>Next ▶</button>
+      <button class="mob-btn" onclick="changeZoom(-0.15)">−</button>
+      <button class="mob-btn" onclick="changeZoom(0.15)">+</button>
+      <a id="mobileDownloadBtn" href="#" target="_blank" class="mob-btn">⬇️</a>
+    </div>
+  </div>
+
+</div><!-- /#appPage -->
+
+<!-- ═══════════════════════════════════════════════════════
+     UPLOAD MODAL
+════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>📤 Upload Book</h3>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="modal-form">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input type="text" id="bookTitle" class="form-input" placeholder="Book or document title">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Author</label>
+        <input type="text" id="bookAuthor" class="form-input" placeholder="Author name (optional)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="bookCategory" class="form-input">
+          <option value="General">General</option>
+          <option value="Fiction">Fiction</option>
+          <option value="Non-Fiction">Non-Fiction</option>
+          <option value="Science">Science</option>
+          <option value="History">History</option>
+          <option value="Technology">Technology</option>
+          <option value="Education">Education</option>
+          <option value="Religion">Religion</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <!-- File Drop Zone -->
+      <div class="dropzone" id="dropzone"
+           ondragover="handleDragOver(event)"
+           ondragleave="handleDragLeave(event)"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="dz-icon">📁</div>
+        <p><strong>Click to choose</strong> or drag & drop here</p>
+        <p style="font-size:0.75rem; margin-top:6px; opacity:0.6">PDF, EPUB, TXT — max 50MB</p>
+        <div class="file-chosen" id="fileChosen"></div>
+      </div>
+      <input type="file" id="fileInput" style="display:none" accept=".pdf,.epub,.txt,.doc,.docx" onchange="handleFileSelect(event)">
+
+      <!-- Progress -->
+      <div class="upload-progress" id="uploadProgress">
+        <div class="progress-label">
+          <span id="progressText">Uploading...</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:8px;">
+        <button class="btn btn-ghost" onclick="closeUploadModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="uploadBook()" id="uploadBtn">
+          📤 Upload
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Confirm Delete Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>🗑️ Delete Book?</h3>
+      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <p style="color:var(--text2); margin-bottom:24px;" id="deleteBookName">Are you sure?</p>
+    <div style="display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDelete()" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/library.js"></script>
+<script src="js/upload.js"></script>
+<script src="js/reader.js"></script>
+
+</body>
+</html>
