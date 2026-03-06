@@ -157,8 +157,8 @@ async function createNewFolder() {
     await db.collection('folders').doc(name).set({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     showToast(`📁 "${name}" folder bana diya!`, 'success');
     document.getElementById('newFolderNameInput').value = '';
-    // Also add to upload dropdown
     addFolderToDropdown(name);
+    await loadAllFolders(); // Refresh folder cache
     await loadFoldersTab();
     await loadBooks();
   } catch(e) {

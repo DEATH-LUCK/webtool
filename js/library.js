@@ -10,6 +10,7 @@ let bookToDelete = null;
 
 // ── Load Books from Firestore ─────────────────────────────────
 async function loadBooks() {
+  await loadAllFolders(); // Load empty folders too
   try {
     const snapshot = await db.collection('books')
       .orderBy('uploadedAt', 'desc')
@@ -25,7 +26,7 @@ async function loadBooks() {
 }
 
 // ── Render Books ──────────────────────────────────────────────
-async function renderBooks() {
+function renderBooks() {
   const search = document.getElementById('searchInput').value.toLowerCase();
 
   let filtered = allBooks.filter(book => {
@@ -47,7 +48,7 @@ async function renderBooks() {
   gridEl.innerHTML = '';
   listEl.innerHTML = '';
 
-  await renderFolders();
+  renderFolders();
   if (filtered.length === 0) {
     emptyEl.style.display = 'block';
     document.getElementById('emptyMsg').textContent =
@@ -141,18 +142,23 @@ function updateStats() {
 }
 
 // ── Folder Sidebar ────────────────────────────────────────────
-async function renderFolders() {
+let allFolders = []; // cached folders list
+
+// Load folders once on startup
+async function loadAllFolders() {
+  try {
+    const snapshot = await db.collection('folders').get();
+    allFolders = snapshot.docs.map(d => d.id);
+  } catch(e) { allFolders = []; }
+}
+
+function renderFolders() {
   const container = document.getElementById('folderList');
   if (!container) return;
 
-  // Get folders from books
+  // Combine folders from books + saved folders
   const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
-
-  // Also get empty folders from Firestore
-  try {
-    const snapshot = await db.collection('folders').get();
-    snapshot.docs.forEach(doc => bookFolders.add(doc.id));
-  } catch(e) {}
+  allFolders.forEach(f => bookFolders.add(f));
 
   const folders = ['all', ...bookFolders];
   container.innerHTML = '';
