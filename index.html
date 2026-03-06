@@ -136,9 +136,19 @@
         <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
       </div>
 
-      <!-- Books Container -->
-      <div id="booksGrid" class="books-grid"></div>
-      <div id="booksListView" class="books-list" style="display:none;"></div>
+      <!-- Folder + Books Layout -->
+      <div class="library-layout">
+        <!-- Folder Sidebar -->
+        <div class="folder-sidebar" id="folderSidebar">
+          <div class="folder-sidebar-title">📂 Folders</div>
+          <div id="folderList"></div>
+        </div>
+        <!-- Books Container -->
+        <div style="flex:1; min-width:0;">
+          <div id="booksGrid" class="books-grid"></div>
+          <div id="booksListView" class="books-list" style="display:none;"></div>
+        </div>
+      </div>
 
       <!-- Empty State -->
       <div class="empty-state" id="emptyState" style="display:none;">
@@ -203,18 +213,21 @@
         <input type="text" id="bookAuthor" class="form-input" placeholder="Author name (optional)">
       </div>
       <div class="form-group">
-        <label class="form-label">Category</label>
-        <select id="bookCategory" class="form-input">
-          <option value="General">General</option>
-          <option value="Fiction">Fiction</option>
-          <option value="Non-Fiction">Non-Fiction</option>
-          <option value="Science">Science</option>
-          <option value="History">History</option>
-          <option value="Technology">Technology</option>
-          <option value="Education">Education</option>
-          <option value="Religion">Religion</option>
-          <option value="Other">Other</option>
-        </select>
+        <label class="form-label">Folder</label>
+        <div style="display:flex; gap:8px;">
+          <select id="bookCategory" class="form-input" style="flex:1" onchange="checkNewFolder(this)">
+            <option value="General">📁 General</option>
+            <option value="Fiction">📁 Fiction</option>
+            <option value="Non-Fiction">📁 Non-Fiction</option>
+            <option value="Science">📁 Science</option>
+            <option value="History">📁 History</option>
+            <option value="Technology">📁 Technology</option>
+            <option value="Education">📁 Education</option>
+            <option value="Religion">📁 Religion</option>
+            <option value="__new__">➕ New Folder...</option>
+          </select>
+        </div>
+        <input type="text" id="newFolderInput" class="form-input" placeholder="Enter new folder name..." style="display:none; margin-top:8px;">
       </div>
 
       <!-- File Drop Zone -->
