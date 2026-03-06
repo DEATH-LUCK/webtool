@@ -172,7 +172,7 @@ function uploadToCloudinary(file, folder, onProgress) {
     fd.append('file', file);
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('folder', folder);
-    const resourceType = file.type.startsWith('image/') ? 'image' : 'raw';
+    const resourceType = file.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' : 'raw';
     const xhr = new XMLHttpRequest();
     xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + resourceType + '/upload');
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*90)); };
