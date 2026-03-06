@@ -32,6 +32,7 @@ function showApp() {
 
   showLibrary();
   loadBooks();
+  setTimeout(syncMobileMenu, 300);
 }
 
 function showLogin() {
@@ -166,3 +167,41 @@ function toggleTheme() {
     });
   }
 })();
+
+// ── Hamburger Menu ────────────────────────────────────────────
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileMenu');
+  menu.classList.toggle('open');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('mobileMenu');
+  const btn = document.getElementById('hamburgerBtn');
+  if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.remove('open');
+  }
+});
+
+// Sync mobile menu with admin role
+function syncMobileMenu() {
+  const email = document.getElementById('navUserEmail')?.textContent;
+  const mobileEmail = document.getElementById('mobileUserEmail');
+  const mobileAdmin = document.getElementById('mobileAdminBadge');
+  const mobileUpload = document.getElementById('mobileUploadBtn');
+
+  if (mobileEmail) mobileEmail.textContent = email || '';
+  if (currentRole === 'admin') {
+    if (mobileAdmin) mobileAdmin.style.display = 'block';
+    if (mobileUpload) mobileUpload.style.display = 'block';
+  }
+}
+
+// Update theme button text in mobile menu
+const _origToggle = window.toggleTheme;
+window.toggleTheme = function() {
+  _origToggle && _origToggle();
+  const isLight = document.body.classList.contains('light-mode');
+  const mobileBtn = document.getElementById('mobileThemeBtn');
+  if (mobileBtn) mobileBtn.textContent = isLight ? '☀️ Dark / Light Mode' : '🌙 Dark / Light Mode';
+};
