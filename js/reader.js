@@ -177,92 +177,138 @@ async function changeZoom(delta) {
 }
 
 
-// ── EPUB Reader ───────────────────────────────────────────────
-let epubBook = null;
-let epubRendition = null;
+// ── EPUB Reader — Text Extract Mode (works on all devices) ───
+let epubChapters = [];
+let epubCurrentChapter = 0;
 
 async function openEPUB(url) {
   try {
-    document.getElementById('readerLoading').style.display = 'none';
+    document.getElementById('readerLoading').style.display = 'flex';
+    document.getElementById('readerLoading').innerHTML = '<div class="spinner"></div><p>Loading EPUB...</p>';
+
     const epubEl = document.getElementById('epubReader');
+    epubEl.style.display = 'none';
+
+    // Load EPUB using JSZip
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+
+    // Find OPF file
+    const containerXml = await zip.file('META-INF/container.xml').async('text');
+    const parser = new DOMParser();
+    const containerDoc = parser.parseFromString(containerXml, 'text/xml');
+    const opfPath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+    const opfDir = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+
+    // Parse OPF
+    const opfXml = await zip.file(opfPath).async('text');
+    const opfDoc = parser.parseFromString(opfXml, 'text/xml');
+
+    // Get spine order
+    const spineItems = opfDoc.querySelectorAll('spine itemref');
+    const manifestItems = opfDoc.querySelectorAll('manifest item');
+    const manifest = {};
+    manifestItems.forEach(item => {
+      manifest[item.getAttribute('id')] = item.getAttribute('href');
+    });
+
+    // Extract text from each chapter
+    epubChapters = [];
+    for (const item of spineItems) {
+      const idref = item.getAttribute('idref');
+      const href = manifest[idref];
+      if (!href) continue;
+      const fullPath = opfDir + href;
+      const file = zip.file(fullPath) || zip.file(href);
+      if (!file) continue;
+      try {
+        const html = await file.async('text');
+        const doc = parser.parseFromString(html, 'text/html');
+        // Remove script/style tags
+        doc.querySelectorAll('script, style').forEach(el => el.remove());
+        const body = doc.body?.innerHTML || doc.documentElement?.innerHTML || '';
+        if (body.trim()) epubChapters.push(body);
+      } catch(e) {}
+    }
+
+    if (epubChapters.length === 0) {
+      showDownloadOption(url);
+      return;
+    }
+
+    totalPages = epubChapters.length;
+    epubCurrentChapter = 0;
+
+    document.getElementById('readerLoading').style.display = 'none';
     epubEl.style.display = 'block';
-    epubEl.style.padding = '0';
-    epubEl.style.background = 'transparent';
-    epubEl.style.width = '100%';
-    epubEl.style.height = 'calc(100vh - 120px)';
+    epubEl.style.padding = '20px 24px';
     epubEl.style.overflowY = 'auto';
     epubEl.style.webkitOverflowScrolling = 'touch';
+    epubEl.style.maxHeight = `calc(100vh - ${isMobile ? 130 : 110}px)`;
+    epubEl.style.background = 'var(--bg2)';
 
-    // Destroy previous instance
-    if (epubRendition) { epubRendition.destroy(); epubRendition = null; }
-    if (epubBook) { epubBook.destroy(); epubBook = null; }
+    renderEpubChapter(0);
 
-    epubBook = ePub(url);
-    const readerH = window.innerHeight - (isMobile ? 140 : 120);
-    epubRendition = epubBook.renderTo('epubReader', {
-      width: '100%',
-      height: readerH,
-      spread: 'none',
-      flow: 'scrolled-doc',
-      allowScriptedContent: true,
-      manager: 'continuous',
-    });
-
-    await epubRendition.display();
-
-    // Style the epub content
-    epubRendition.themes.default({
-      body: {
-        'font-family': "'DM Sans', sans-serif !important",
-        'line-height': '1.8 !important',
-        'font-size': isMobile ? '1rem !important' : '0.95rem !important',
-        'color': document.body.classList.contains('light-mode') ? '#1a1612 !important' : '#e8e0d0 !important',
-        'background': document.body.classList.contains('light-mode') ? '#f5f0e8 !important' : '#141210 !important',
-        'padding': '20px !important',
-      }
-    });
-
-    // Page tracking
-    epubBook.ready.then(() => {
-      totalPages = epubBook.spine ? epubBook.spine.length : 1;
-      document.getElementById('pageInfo').textContent = `Chapter 1 / ${totalPages}`;
-      document.getElementById('mobilePageInfo').textContent = `1/${totalPages}`;
-      updateNavButtons();
-    });
-
-    epubRendition.on('relocated', (location) => {
-      const current = location.start.index + 1;
-      document.getElementById('pageInfo').textContent = `Chapter ${current} / ${totalPages}`;
-      document.getElementById('mobilePageInfo').textContent = `${current}/${totalPages}`;
-      currentPage = current;
-      updateNavButtons();
-    });
-
-    // Override changePage for EPUB — works for ALL buttons
+    // Override changePage
     window.changePage = async (delta) => {
-      if (!epubRendition) return;
-      if (delta > 0) await epubRendition.next();
-      else await epubRendition.prev();
+      const next = epubCurrentChapter + delta;
+      if (next < 0 || next >= epubChapters.length) return;
+      epubCurrentChapter = next;
+      renderEpubChapter(epubCurrentChapter);
+      document.getElementById('readerContainer').scrollTo({ top: 0, behavior: 'smooth' });
+      epubEl.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Also wire mobile buttons directly
+    // Wire mobile buttons
     const mPrev = document.getElementById('mobilePrevBtn');
     const mNext = document.getElementById('mobileNextBtn');
-    if (mPrev) mPrev.onclick = () => epubRendition?.prev();
-    if (mNext) mNext.onclick = () => epubRendition?.next();
-
-    // Enable nav buttons for EPUB
-    if (mPrev) mPrev.disabled = false;
-    if (mNext) mNext.disabled = false;
+    if (mPrev) { mPrev.disabled = false; mPrev.onclick = () => changePage(-1); }
+    if (mNext) { mNext.disabled = false; mNext.onclick = () => changePage(1); }
     document.getElementById('prevPage').disabled = false;
     document.getElementById('nextPage').disabled = false;
-
-    document.getElementById('pageInfo').textContent = 'EPUB Loading...';
 
   } catch(err) {
     console.error('EPUB error:', err);
     showDownloadOption(url);
   }
+}
+
+function renderEpubChapter(index) {
+  const epubEl = document.getElementById('epubReader');
+  const isLight = document.body.classList.contains('light-mode');
+
+  epubEl.innerHTML = `
+    <div style="
+      max-width: 680px;
+      margin: 0 auto;
+      font-family: var(--font-body);
+      font-size: ${isMobile ? '1rem' : '0.95rem'};
+      line-height: 1.9;
+      color: var(--text);
+    ">
+      ${epubChapters[index]}
+    </div>`;
+
+  // Fix images inside epub
+  epubEl.querySelectorAll('img').forEach(img => {
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.borderRadius = '6px';
+  });
+
+  currentPage = index + 1;
+  const pageText = `${currentPage} / ${totalPages}`;
+  document.getElementById('pageInfo').textContent = `Chapter ${pageText}`;
+  document.getElementById('mobilePageInfo').textContent = pageText;
+
+  // Update nav buttons
+  document.getElementById('prevPage').disabled = index <= 0;
+  document.getElementById('nextPage').disabled = index >= totalPages - 1;
+  const mPrev = document.getElementById('mobilePrevBtn');
+  const mNext = document.getElementById('mobileNextBtn');
+  if (mPrev) mPrev.disabled = index <= 0;
+  if (mNext) mNext.disabled = index >= totalPages - 1;
 }
 
 // ── TXT Reader ─────────────────────────────────────────────────
