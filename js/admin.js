@@ -104,17 +104,25 @@ async function loadFoldersTab() {
   const container = document.getElementById('adminFoldersList');
   container.innerHTML = '<p style="color:var(--text2)">Loading...</p>';
   try {
-    const snapshot = await db.collection('books').get();
+    // Get books
+    const booksSnap = await db.collection('books').get();
     const folderMap = {};
-    snapshot.docs.forEach(doc => {
+    booksSnap.docs.forEach(doc => {
       const cat = doc.data().category || 'General';
       if (!folderMap[cat]) folderMap[cat] = [];
       folderMap[cat].push({ id: doc.id, ...doc.data() });
     });
 
+    // Get empty folders too
+    const foldersSnap = await db.collection('folders').get();
+    foldersSnap.docs.forEach(doc => {
+      if (!folderMap[doc.id]) folderMap[doc.id] = [];
+    });
+
+    const allFolderNames = Object.keys(folderMap);
     container.innerHTML = '';
 
-    // Add new folder button
+    // ── New folder input ──
     const addDiv = document.createElement('div');
     addDiv.className = 'admin-new-folder';
     addDiv.innerHTML = `
@@ -122,29 +130,53 @@ async function loadFoldersTab() {
       <button class="btn btn-primary btn-sm" onclick="createNewFolder()">➕ Create</button>`;
     container.appendChild(addDiv);
 
-    Object.entries(folderMap).forEach(([folder, books]) => {
+    // ── Folder list ──
+    if (allFolderNames.length === 0) {
+      container.innerHTML += '<p style="color:var(--text2); text-align:center; padding:20px;">No folders yet</p>';
+      return;
+    }
+
+    allFolderNames.forEach(folder => {
+      const books = folderMap[folder];
       const div = document.createElement('div');
       div.className = 'admin-folder-row';
-      div.innerHTML = `
-        <div class="admin-folder-header">
-          <span>📁 <strong>${folder}</strong> <span style="color:var(--text2); font-size:0.8rem;">(${books.length} books)</span></span>
-          <button class="btn btn-danger btn-sm" onclick="deleteFolder('${folder}', ${books.length})">🗑 Delete Folder</button>
-        </div>
-        <div class="admin-folder-books">
-          ${books.map(b => `
+
+      // Books list inside folder
+      const booksHtml = books.length === 0
+        ? '<p style="color:var(--text2); font-size:0.8rem; padding:8px 12px;">Empty folder</p>'
+        : books.map(b => `
             <div class="admin-book-row">
-              <span class="admin-book-title">${b.title}</span>
-              <select class="form-input admin-move-select" style="width:130px; padding:4px 8px; font-size:0.78rem;" onchange="moveBook('${b.id}', this.value, '${folder}')">
+              <span class="admin-book-title">📄 ${escapeHtml(b.title)}</span>
+              <select class="form-input admin-move-select" onchange="moveBook('${b.id}', this.value, '${folder}')">
                 <option value="">📂 Move to...</option>
-                ${Object.keys(folderMap).filter(f => f !== folder).map(f => `<option value="${f}">${f}</option>`).join('')}
+                ${allFolderNames.filter(f => f !== folder).map(f => `<option value="${f}">📁 ${f}</option>`).join('')}
               </select>
-            </div>`).join('')}
+            </div>`).join('');
+
+      div.innerHTML = `
+        <div class="admin-folder-header" onclick="toggleFolderExpand('folder_${folder.replace(/\s/g,'_')}')" style="cursor:pointer;">
+          <span>📁 <strong>${folder}</strong> <span style="color:var(--text2); font-size:0.8rem;">(${books.length} books)</span></span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteFolder('${folder}', ${books.length})">🗑 Delete</button>
+            <span class="folder-chevron">▼</span>
+          </div>
+        </div>
+        <div class="admin-folder-books" id="folder_${folder.replace(/\s/g,'_')}" style="display:none;">
+          ${booksHtml}
         </div>`;
       container.appendChild(div);
     });
+
   } catch(e) {
     container.innerHTML = `<p style="color:var(--danger)">Error: ${e.message}</p>`;
   }
+}
+
+function toggleFolderExpand(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
 }
 
 // Create new empty folder (just a placeholder — real folder created on upload)
