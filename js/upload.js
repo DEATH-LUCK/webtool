@@ -127,12 +127,10 @@ async function uploadBook() {
 
     document.getElementById('progressText').textContent = 'Saving to database...';
 
-    // Cover: generate locally from PDF, no upload needed
+    // Generate PDF cover locally as dataURL (stored in Firestore)
     let coverUrl = null;
     if (fileType === 'pdf') {
-      try {
-        coverUrl = await generatePDFCover(selectedFile);
-      } catch(e) {}
+      try { coverUrl = await generatePDFCover(selectedFile); } catch(e) {}
     }
 
     // Save new folder if needed

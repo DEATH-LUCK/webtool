@@ -197,7 +197,10 @@ function setFilter(filter, btn) {
 // ── Open Book ─────────────────────────────────────────────────
 function openBook(bookId) {
   const book = allBooks.find(b => b.id === bookId);
-  if (book) openReader(book);
+  if (book) {
+    document.getElementById('libraryView').style.display = 'none';
+    openReader(book);
+  }
 }
 
 // ── Delete ────────────────────────────────────────────────────
