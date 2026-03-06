@@ -11,6 +11,7 @@ function openUploadModal() {
   if (currentRole !== 'admin') { showToast('Only admins can upload books', 'error'); return; }
   resetUploadForm();
   document.getElementById('uploadModal').classList.add('open');
+  loadFoldersIntoUpload();
 }
 function closeUploadModal() {
   document.getElementById('uploadModal').classList.remove('open');
@@ -140,3 +141,41 @@ function formatSize(b) {
   return (b/1048576).toFixed(1) + ' MB';
 }
 function capitalizeWords(s) { return s.replace(/\b\w/g, c => c.toUpperCase()); }
+
+// ── New Folder Logic ──────────────────────────────────────────
+function checkNewFolder(select) {
+  const newInput = document.getElementById('newFolderInput');
+  if (select.value === '__new__') {
+    newInput.style.display = 'block';
+    newInput.focus();
+  } else {
+    newInput.style.display = 'none';
+  }
+}
+
+// Load existing folders into upload dropdown
+async function loadFoldersIntoUpload() {
+  try {
+    const snapshot = await db.collection('books').get();
+    const folders = [...new Set(snapshot.docs.map(d => d.data().category).filter(Boolean))];
+    const select = document.getElementById('bookCategory');
+    if (!select) return;
+
+    // Keep default options, add custom folders
+    const defaultFolders = ['General','Fiction','Non-Fiction','Science','History','Technology','Education','Religion'];
+    const customFolders = folders.filter(f => !defaultFolders.includes(f));
+
+    customFolders.forEach(folder => {
+      // Check if already exists
+      const exists = Array.from(select.options).some(o => o.value === folder);
+      if (!exists) {
+        const opt = document.createElement('option');
+        opt.value = folder;
+        opt.textContent = '📁 ' + folder;
+        // Insert before "New Folder" option
+        const lastOpt = select.querySelector('option[value="__new__"]');
+        select.insertBefore(opt, lastOpt);
+      }
+    });
+  } catch(e) {}
+}

@@ -5,6 +5,7 @@
 let allBooks = [];
 let currentView = 'grid';
 let currentFilter = 'all';
+let currentFolder = 'all';
 let bookToDelete = null;
 
 // ── Load Books from Firestore ─────────────────────────────────
@@ -35,7 +36,8 @@ function renderBooks() {
       (currentFilter === 'pdf' && book.fileType === 'pdf') ||
       (currentFilter === 'epub' && book.fileType === 'epub') ||
       (currentFilter === 'other' && !['pdf', 'epub'].includes(book.fileType));
-    return matchSearch && matchFilter;
+    const matchFolder = currentFolder === 'all' || book.category === currentFolder;
+    return matchSearch && matchFilter && matchFolder;
   });
 
   const gridEl = document.getElementById('booksGrid');
@@ -45,6 +47,7 @@ function renderBooks() {
   gridEl.innerHTML = '';
   listEl.innerHTML = '';
 
+  renderFolders();
   if (filtered.length === 0) {
     emptyEl.style.display = 'block';
     document.getElementById('emptyMsg').textContent =
@@ -135,6 +138,27 @@ function updateStats() {
   document.getElementById('statPDF').textContent  = allBooks.filter(b => b.fileType === 'pdf').length;
   document.getElementById('statEPUB').textContent = allBooks.filter(b => b.fileType === 'epub').length;
   document.getElementById('statOther').textContent = allBooks.filter(b => !['pdf','epub'].includes(b.fileType)).length;
+}
+
+// ── Folder Sidebar ────────────────────────────────────────────
+function renderFolders() {
+  const folders = ['all', ...new Set(allBooks.map(b => b.category).filter(Boolean))];
+  const container = document.getElementById('folderList');
+  if (!container) return;
+  container.innerHTML = '';
+  folders.forEach(folder => {
+    const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
+    const btn = document.createElement('button');
+    btn.className = 'folder-btn' + (currentFolder === folder ? ' active' : '');
+    btn.innerHTML = `<span>${folder === 'all' ? '📚 All Books' : '📁 ' + folder}</span><span class="folder-count">${count}</span>`;
+    btn.onclick = () => {
+      currentFolder = folder;
+      document.querySelectorAll('.folder-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderBooks();
+    };
+    container.appendChild(btn);
+  });
 }
 
 // ── View & Filter ─────────────────────────────────────────────
