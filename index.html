@@ -70,6 +70,9 @@
         <button class="btn btn-ghost btn-sm" id="uploadNavBtn" style="display:none" onclick="openUploadModal()">
           ＋ Upload
         </button>
+        <button class="btn btn-ghost btn-sm" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle theme">
+          🌙
+        </button>
         <button class="btn btn-ghost btn-sm" onclick="handleLogout()">
           Sign Out
         </button>
@@ -167,9 +170,7 @@
       <button class="mob-btn mob-nav" id="mobilePrevBtn" onclick="changePage(-1)" disabled>◀ Prev</button>
       <div class="mob-page-info" id="mobilePageInfo">1/1</div>
       <button class="mob-btn mob-nav" id="mobileNextBtn" onclick="changePage(1)" disabled>Next ▶</button>
-      <button class="mob-btn" onclick="changeZoom(-0.15)">−</button>
-      <button class="mob-btn" onclick="changeZoom(0.15)">+</button>
-      <a id="mobileDownloadBtn" href="#" target="_blank" class="mob-btn">⬇️</a>
+      <a id="mobileDownloadBtn" href="#" target="_blank" class="mob-btn">⬇️ Save</a>
     </div>
   </div>
 
