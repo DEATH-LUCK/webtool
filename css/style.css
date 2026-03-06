@@ -967,3 +967,42 @@ body.light-mode .mobile-reader-bar {
 }
 .admin-folder-books { border-top: 1px solid var(--border); }
 .admin-move-select { width: 130px !important; padding: 4px 8px !important; font-size: 0.78rem !important; }
+
+/* ── Folder Filter Bar ───────────────────────────────────────── */
+.folder-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+#folderList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+.folder-chip {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.folder-chip:hover { border-color: var(--amber); color: var(--amber); }
+.folder-chip.active { border-color: var(--amber); color: var(--amber); background: rgba(232,164,53,0.1); }
+.folder-chip .folder-count {
+  background: var(--border);
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 0.7rem;
+  color: var(--text2);
+}
