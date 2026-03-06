@@ -740,12 +740,15 @@ body.light-mode .mobile-reader-bar {
 }
 
 /* ── EPUB Reader ─────────────────────────────────────────────── */
-#epubReader iframe {
-  border: none !important;
-  border-radius: 8px;
-}
 #epubReader {
   border-radius: 8px;
-  overflow: hidden;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  background: var(--bg2);
+}
+#epubReader iframe {
+  border: none !important;
+  width: 100% !important;
+  min-height: 100vh !important;
 }
