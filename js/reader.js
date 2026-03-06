@@ -22,6 +22,7 @@ async function openReader(book) {
   // Show reader, hide library
   document.getElementById('readerView').style.display  = 'block';
   document.getElementById('libraryView').style.display = 'none';
+  document.getElementById('appPage').style.display     = 'block';
   document.getElementById('readerBookTitle').textContent = book.title;
 
   // Reset
@@ -45,8 +46,12 @@ async function openReader(book) {
 function closeReader() {
   document.getElementById('readerView').style.display  = 'none';
   document.getElementById('libraryView').style.display = 'block';
+  document.getElementById('appPage').style.display     = 'block';
   pdfDoc = null; isRendering = false;
   epubChapters = []; epubCurrentChapter = 0;
+  const canvas = document.getElementById('pdfCanvas');
+  if (canvas) canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('epubContainer').innerHTML = '';
 }
 
 // ── PDF ───────────────────────────────────────────────────────

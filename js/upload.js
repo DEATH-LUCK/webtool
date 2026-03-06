@@ -184,11 +184,14 @@ async function generatePDFCover(file) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
     const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 0.5 });
+    const base = page.getViewport({ scale: 1 });
+    // Scale to max 300px wide for thumbnail
+    const scale = Math.min(300 / base.width, 1.0);
+    const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width; canvas.height = viewport.height;
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-    return canvas.toDataURL('image/jpeg', 0.7);
+    return canvas.toDataURL('image/jpeg', 0.85);
   } catch(e) { return null; }
 }
 

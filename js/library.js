@@ -112,7 +112,7 @@ function createGridCard(book, index) {
   div.style.animationDelay = (index * 0.04) + 's';
 
   const cover = book.coverUrl
-    ? '<img src="' + book.coverUrl + '" alt="cover" loading="lazy">'
+    ? '<img src="' + book.coverUrl + '" alt="cover" loading="lazy" onerror="this.parentNode.innerHTML='<div class=cover-placeholder><span class=cover-icon>' + getFileIcon(book.fileType) + '</span></div>'">'
     : '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) + '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
 
   const adminHtml = currentRole === 'admin'
@@ -197,10 +197,7 @@ function setFilter(filter, btn) {
 // ── Open Book ─────────────────────────────────────────────────
 function openBook(bookId) {
   const book = allBooks.find(b => b.id === bookId);
-  if (book) {
-    document.getElementById('libraryView').style.display = 'none';
-    openReader(book);
-  }
+  if (book) openReader(book);
 }
 
 // ── Delete ────────────────────────────────────────────────────
