@@ -70,6 +70,7 @@
         <div class="nav-user" id="navUserEmail"></div>
         <div class="badge-admin" id="navAdminBadge" style="display:none">Admin</div>
         <button class="btn btn-ghost btn-sm" id="uploadNavBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
+        <button class="btn btn-ghost btn-sm" id="adminPanelBtn" style="display:none" onclick="openAdminPanel()">⚙️ Admin</button>
         <button class="btn btn-ghost btn-sm" id="themeToggleBtn" onclick="toggleTheme()">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
       </div>
@@ -82,6 +83,7 @@
         <div class="mobile-menu-user" id="mobileUserEmail"></div>
         <div class="mobile-menu-item" id="mobileAdminBadge" style="display:none"><span class="badge-admin">Admin</span></div>
         <button class="mobile-menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); toggleMobileMenu()">＋ Upload Book</button>
+        <button class="mobile-menu-item" id="mobileAdminPanelBtn" style="display:none" onclick="openAdminPanel(); toggleMobileMenu()">⚙️ Admin Panel</button>
         <button class="mobile-menu-item" onclick="toggleTheme(); toggleMobileMenu()" id="mobileThemeBtn">🌙 Dark / Light Mode</button>
         <button class="mobile-menu-item danger" onclick="handleLogout()">Sign Out</button>
       </div>
@@ -192,6 +194,43 @@
     </div>
   </div>
 
+
+<!-- ═══════════════════════════════════════════════════════
+     ADMIN PANEL MODAL
+════════════════════════════════════════════════════════ -->
+<div class="admin-panel-overlay" id="adminPanel">
+  <div class="admin-panel">
+    <div class="admin-panel-header">
+      <h2>⚙️ Admin Panel</h2>
+      <button class="modal-close" onclick="closeAdminPanel()">✕</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" onclick="switchAdminTab('users')">👥 Users</button>
+      <button class="admin-tab-btn" onclick="switchAdminTab('folders')">📁 Folders</button>
+    </div>
+
+    <!-- Users Tab -->
+    <div class="admin-tab-content" id="adminTab_users">
+      <div class="admin-add-section">
+        <h4>➕ Add New Admin</h4>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input type="email" id="newAdminEmail" class="form-input" placeholder="user@email.com" style="flex:1;">
+          <button class="btn btn-primary btn-sm" onclick="addNewAdmin()">Make Admin</button>
+        </div>
+      </div>
+      <h4 style="margin:16px 0 8px;">All Users</h4>
+      <div id="adminUsersList"></div>
+    </div>
+
+    <!-- Folders Tab -->
+    <div class="admin-tab-content" id="adminTab_folders" style="display:none;">
+      <div id="adminFoldersList"></div>
+    </div>
+  </div>
+</div>
+
 </div><!-- /#appPage -->
 
 <!-- ═══════════════════════════════════════════════════════
@@ -291,6 +330,7 @@
 <script src="js/auth.js"></script>
 <script src="js/library.js"></script>
 <script src="js/upload.js"></script>
+  <script src="js/admin.js"></script>
 <script src="js/reader.js"></script>
 
 </body>
