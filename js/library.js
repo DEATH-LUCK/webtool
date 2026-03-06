@@ -156,21 +156,19 @@ function renderFolders() {
   const container = document.getElementById('folderList');
   if (!container) return;
 
-  // Combine folders from books + saved folders
   const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
   allFolders.forEach(f => bookFolders.add(f));
-
   const folders = ['all', ...bookFolders];
   container.innerHTML = '';
 
   folders.forEach(folder => {
     const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
     const btn = document.createElement('button');
-    btn.className = 'folder-btn' + (currentFolder === folder ? ' active' : '');
-    btn.innerHTML = `<span>${folder === 'all' ? '📚 All' : '📁 ' + folder}</span><span class="folder-count">${count}</span>`;
+    btn.className = 'folder-chip' + (currentFolder === folder ? ' active' : '');
+    btn.innerHTML = (folder === 'all' ? '📚 All' : '📁 ' + folder) + ' <span class="folder-count">' + count + '</span>';
     btn.onclick = () => {
       currentFolder = folder;
-      document.querySelectorAll('.folder-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.folder-chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       renderBooks();
     };
@@ -191,7 +189,15 @@ function setView(view) {
 function setFilter(filter, btnEl) {
   currentFilter = filter;
   document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  btnEl.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
+
+  // Show/hide folder bar
+  const folderBar = document.getElementById('folderFilterBar');
+  if (folderBar) folderBar.style.display = filter === 'folders' ? 'flex' : 'none';
+
+  // Reset folder when leaving folders tab
+  if (filter !== 'folders') currentFolder = 'all';
+
   renderBooks();
 }
 
