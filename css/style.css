@@ -958,3 +958,12 @@ body.light-mode .mobile-reader-bar {
   .admin-folder-header { flex-direction: column; align-items: flex-start; }
   .admin-book-row { flex-direction: column; align-items: flex-start; }
 }
+
+/* ── Folder Chevron ──────────────────────────────────────────── */
+.folder-chevron {
+  font-size: 0.75rem;
+  color: var(--text2);
+  transition: transform 0.2s;
+}
+.admin-folder-books { border-top: 1px solid var(--border); }
+.admin-move-select { width: 130px !important; padding: 4px 8px !important; font-size: 0.78rem !important; }
