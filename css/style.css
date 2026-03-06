@@ -569,3 +569,27 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 700; line-height: 1.
   .modal { padding: 24px 16px; border-radius: 16px 16px 0 0; margin-top: auto; max-height: 90vh; overflow-y: auto; }
   .modal-overlay { align-items: flex-end; padding: 0; }
 }
+
+/* ── Light Mode ──────────────────────────────────────────────── */
+body.light-mode {
+  --bg:       #f5f0e8;
+  --bg2:      #ffffff;
+  --bg3:      #ede8df;
+  --border:   #d4cec4;
+  --text:     #1a1612;
+  --text2:    #6b6358;
+  --amber:    #b8720a;
+  --amber2:   #d4901a;
+}
+body.light-mode .navbar {
+  background: rgba(245,240,232,0.95);
+}
+body.light-mode .book-card {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+body.light-mode #loginPage {
+  background: radial-gradient(ellipse at 50% 0%, #ede0c8 0%, var(--bg) 60%);
+}
+body.light-mode .mobile-reader-bar {
+  background: rgba(245,240,232,0.97);
+}
