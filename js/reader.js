@@ -226,6 +226,24 @@ async function openEPUB(url) {
       manifest[item.getAttribute('id')] = item.getAttribute('href');
     });
 
+    // Pre-load all images as base64 blob URLs
+    const imageCache = {};
+    for (const [id, href] of Object.entries(manifest)) {
+      if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(href)) {
+        const fullPath = opfDir + href;
+        const imgFile = zip.file(fullPath) || zip.file(href);
+        if (imgFile) {
+          try {
+            const blob = await imgFile.async('blob');
+            imageCache[href] = URL.createObjectURL(blob);
+            // Also store without directory
+            const basename = href.split('/').pop();
+            imageCache[basename] = imageCache[href];
+          } catch(e) {}
+        }
+      }
+    }
+
     // Extract text from each chapter
     epubChapters = [];
     for (const item of spineItems) {
@@ -238,8 +256,16 @@ async function openEPUB(url) {
       try {
         const html = await file.async('text');
         const doc = parser.parseFromString(html, 'text/html');
-        // Remove script/style tags
         doc.querySelectorAll('script, style').forEach(el => el.remove());
+
+        // Fix image src to use blob URLs
+        doc.querySelectorAll('img, image').forEach(img => {
+          const src = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
+          const basename = src.split('/').pop();
+          if (imageCache[src]) img.setAttribute('src', imageCache[src]);
+          else if (imageCache[basename]) img.setAttribute('src', imageCache[basename]);
+        });
+
         const body = doc.body?.innerHTML || doc.documentElement?.innerHTML || '';
         if (body.trim()) epubChapters.push(body);
       } catch(e) {}
