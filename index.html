@@ -136,21 +136,17 @@
         <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
         <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
         <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
+        <button class="filter-tab" onclick="setFilter('folders', this)">📁 Folders</button>
       </div>
 
-      <!-- Folder + Books Layout -->
-      <div class="library-layout">
-        <!-- Folder Sidebar -->
-        <div class="folder-sidebar" id="folderSidebar">
-          <div class="folder-sidebar-title">📂 Folders</div>
-          <div id="folderList"></div>
-        </div>
-        <!-- Books Container -->
-        <div style="flex:1; min-width:0;">
-          <div id="booksGrid" class="books-grid"></div>
-          <div id="booksListView" class="books-list" style="display:none;"></div>
-        </div>
+      <!-- Folder Filter Bar (shown when Folders tab active) -->
+      <div class="folder-filter-bar" id="folderFilterBar" style="display:none;">
+        <div id="folderList"></div>
       </div>
+
+      <!-- Books Container -->
+      <div id="booksGrid" class="books-grid"></div>
+      <div id="booksListView" class="books-list" style="display:none;"></div>
 
       <!-- Empty State -->
       <div class="empty-state" id="emptyState" style="display:none;">
