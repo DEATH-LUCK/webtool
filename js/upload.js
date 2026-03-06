@@ -1,17 +1,16 @@
 // ============================================================
-// UPLOAD.JS — Cloudinary File Upload (Free, No Credit Card)
+// UPLOAD.JS — Cloudinary File Upload
 // ============================================================
-
-const CLOUDINARY_CLOUD_NAME = 'dsnau7xlr';
-const CLOUDINARY_UPLOAD_PRESET = 'ml_library';
+const CLOUDINARY_CLOUD  = 'dsnau7xlr';
+const CLOUDINARY_PRESET = 'ml_library';
 
 let selectedFile = null;
 
 function openUploadModal() {
-  if (currentRole !== 'admin') { showToast('Only admins can upload books', 'error'); return; }
+  if (currentRole !== 'admin') { showToast('Admins only.', 'error'); return; }
   resetUploadForm();
+  loadFoldersIntoSelect();
   document.getElementById('uploadModal').classList.add('open');
-  loadFoldersIntoUpload();
 }
 function closeUploadModal() {
   document.getElementById('uploadModal').classList.remove('open');
@@ -19,17 +18,66 @@ function closeUploadModal() {
 }
 function resetUploadForm() {
   selectedFile = null;
-  document.getElementById('bookTitle').value = '';
+  document.getElementById('bookTitle').value  = '';
   document.getElementById('bookAuthor').value = '';
-  document.getElementById('bookCategory').value = 'General';
+  document.getElementById('bookFolder').value = 'General';
+  document.getElementById('newFolderInput').style.display = 'none';
+  document.getElementById('newFolderInput').value = '';
   document.getElementById('fileChosen').style.display = 'none';
-  document.getElementById('uploadProgress').classList.remove('show');
+  document.getElementById('uploadProgress').style.display = 'none';
   document.getElementById('progressBar').style.width = '0%';
-  document.getElementById('uploadBtn').disabled = false;
-  document.getElementById('uploadBtn').innerHTML = '📤 Upload';
+  const btn = document.getElementById('uploadSubmitBtn');
+  btn.disabled = false;
+  btn.textContent = 'Upload';
 }
 
-function handleDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+async function loadFoldersIntoSelect() {
+  const select = document.getElementById('bookFolder');
+  const defaults = ['General','Fiction','Non-Fiction','Science','History','Technology','Education','Religion'];
+
+  // Reset
+  select.innerHTML = defaults.map(f => '<option value="' + f + '">📁 ' + f + '</option>').join('');
+
+  try {
+    // Add custom folders
+    const snap = await db.collection('folders').get();
+    snap.docs.forEach(doc => {
+      if (!defaults.includes(doc.id)) {
+        const opt = document.createElement('option');
+        opt.value = doc.id;
+        opt.textContent = '📁 ' + doc.id;
+        select.appendChild(opt);
+      }
+    });
+
+    // Custom folders from books too
+    const bSnap = await db.collection('books').get();
+    const bookFolders = [...new Set(bSnap.docs.map(d => d.data().category).filter(Boolean))];
+    bookFolders.forEach(f => {
+      if (!defaults.includes(f) && !Array.from(select.options).some(o => o.value === f)) {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = '📁 ' + f;
+        select.appendChild(opt);
+      }
+    });
+  } catch(e) {}
+
+  // Add "New folder..." option
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '➕ New Folder...';
+  select.appendChild(newOpt);
+}
+
+function onFolderChange(select) {
+  const input = document.getElementById('newFolderInput');
+  input.style.display = select.value === '__new__' ? 'block' : 'none';
+  if (select.value === '__new__') input.focus();
+}
+
+// ── Drag & Drop ───────────────────────────────────────────────
+function handleDragOver(e)  { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
 function handleDragLeave(e) { document.getElementById('dropzone').classList.remove('drag-over'); }
 function handleDrop(e) {
   e.preventDefault();
@@ -39,33 +87,39 @@ function handleDrop(e) {
 function handleFileSelect(e) { if (e.target.files.length > 0) processFile(e.target.files[0]); }
 
 function processFile(file) {
-  if (!file.name.match(/\.(pdf|epub|txt|doc|docx)$/i)) { showToast('Unsupported file type', 'error'); return; }
-  if (file.size > 50 * 1024 * 1024) { showToast('File too large. Max 50MB', 'error'); return; }
+  if (!file.name.match(/\.(pdf|epub|txt|doc|docx)$/i)) { showToast('Unsupported file type.', 'error'); return; }
+  if (file.size > 50 * 1024 * 1024) { showToast('File too large. Max 50MB.', 'error'); return; }
   selectedFile = file;
-  const fcEl = document.getElementById('fileChosen');
-  fcEl.textContent = '✅ ' + file.name + ' (' + formatSize(file.size) + ')';
-  fcEl.style.display = 'block';
+  const fc = document.getElementById('fileChosen');
+  fc.textContent = '✅ ' + file.name + ' (' + formatSize(file.size) + ')';
+  fc.style.display = 'block';
   if (!document.getElementById('bookTitle').value) {
-    document.getElementById('bookTitle').value = capitalizeWords(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+    document.getElementById('bookTitle').value = capitalizeWords(
+      file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
+    );
   }
 }
 
+// ── Upload ────────────────────────────────────────────────────
 async function uploadBook() {
-  if (!selectedFile) { showToast('Please select a file', 'error'); return; }
+  if (!selectedFile) { showToast('Please select a file.', 'error'); return; }
   const title = document.getElementById('bookTitle').value.trim();
-  if (!title) { showToast('Please enter a title', 'error'); return; }
+  if (!title) { showToast('Please enter a title.', 'error'); return; }
 
   const author = document.getElementById('bookAuthor').value.trim();
-  const category = document.getElementById('bookCategory').value;
+  const folderSelect = document.getElementById('bookFolder').value;
+  const newFolderVal = document.getElementById('newFolderInput').value.trim();
+  const category = folderSelect === '__new__' ? (newFolderVal || 'General') : folderSelect;
   const fileType = selectedFile.name.split('.').pop().toLowerCase();
-  const btn = document.getElementById('uploadBtn');
+  const btn = document.getElementById('uploadSubmitBtn');
 
   btn.disabled = true;
-  btn.innerHTML = '⏳ Uploading...';
-  document.getElementById('uploadProgress').classList.add('show');
+  btn.textContent = 'Uploading...';
+  document.getElementById('uploadProgress').style.display = 'block';
   document.getElementById('progressText').textContent = 'Uploading file...';
 
   try {
+    // Upload file
     const fileUrl = await uploadToCloudinary(selectedFile, 'books', (pct) => {
       document.getElementById('progressBar').style.width = pct + '%';
       document.getElementById('progressPercent').textContent = pct + '%';
@@ -73,6 +127,7 @@ async function uploadBook() {
 
     document.getElementById('progressText').textContent = 'Saving to database...';
 
+    // Generate cover for PDF
     let coverUrl = null;
     if (fileType === 'pdf') {
       try {
@@ -84,6 +139,15 @@ async function uploadBook() {
       } catch(e) {}
     }
 
+    // Save new folder if needed
+    if (folderSelect === '__new__' && newFolderVal) {
+      await db.collection('folders').doc(newFolderVal).set({
+        name: newFolderVal,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(() => {});
+    }
+
+    // Save to Firestore
     await db.collection('books').add({
       title, author: author || null, category, fileType,
       fileSize: selectedFile.size, downloadUrl: fileUrl,
@@ -92,14 +156,13 @@ async function uploadBook() {
     });
 
     document.getElementById('progressBar').style.width = '100%';
-    showToast('"' + title + '" uploaded! 🎉', 'success');
+    showToast('"' + title + '" uploaded successfully!', 'success');
     closeUploadModal();
     await loadBooks();
   } catch(err) {
-    console.error(err);
     showToast('Upload failed: ' + err.message, 'error');
     btn.disabled = false;
-    btn.innerHTML = '📤 Upload';
+    btn.textContent = 'Upload';
   }
 }
 
@@ -107,11 +170,11 @@ function uploadToCloudinary(file, folder, onProgress) {
   return new Promise((resolve, reject) => {
     const fd = new FormData();
     fd.append('file', file);
-    fd.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('folder', folder);
     const resourceType = file.type.startsWith('image/') ? 'image' : 'raw';
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/' + resourceType + '/upload');
+    xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + resourceType + '/upload');
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*90)); };
     xhr.onload = () => {
       if (xhr.status === 200) resolve(JSON.parse(xhr.responseText).secure_url);
@@ -141,41 +204,3 @@ function formatSize(b) {
   return (b/1048576).toFixed(1) + ' MB';
 }
 function capitalizeWords(s) { return s.replace(/\b\w/g, c => c.toUpperCase()); }
-
-// ── New Folder Logic ──────────────────────────────────────────
-function checkNewFolder(select) {
-  const newInput = document.getElementById('newFolderInput');
-  if (select.value === '__new__') {
-    newInput.style.display = 'block';
-    newInput.focus();
-  } else {
-    newInput.style.display = 'none';
-  }
-}
-
-// Load existing folders into upload dropdown
-async function loadFoldersIntoUpload() {
-  try {
-    const snapshot = await db.collection('books').get();
-    const folders = [...new Set(snapshot.docs.map(d => d.data().category).filter(Boolean))];
-    const select = document.getElementById('bookCategory');
-    if (!select) return;
-
-    // Keep default options, add custom folders
-    const defaultFolders = ['General','Fiction','Non-Fiction','Science','History','Technology','Education','Religion'];
-    const customFolders = folders.filter(f => !defaultFolders.includes(f));
-
-    customFolders.forEach(folder => {
-      // Check if already exists
-      const exists = Array.from(select.options).some(o => o.value === folder);
-      if (!exists) {
-        const opt = document.createElement('option');
-        opt.value = folder;
-        opt.textContent = '📁 ' + folder;
-        // Insert before "New Folder" option
-        const lastOpt = select.querySelector('option[value="__new__"]');
-        select.insertBefore(opt, lastOpt);
-      }
-    });
-  } catch(e) {}
-}

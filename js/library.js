@@ -1,68 +1,107 @@
 // ============================================================
-// LIBRARY.JS — Load, Display, Filter, Delete Books
+// LIBRARY.JS — Books Display, Search, Filter, Folders
 // ============================================================
-
-let allBooks = [];
-let currentView = 'grid';
+let allBooks     = [];
+let allFolders   = [];
+let currentView   = 'grid';
 let currentFilter = 'all';
 let currentFolder = 'all';
-let bookToDelete = null;
 
-// ── Load Books from Firestore ─────────────────────────────────
+// ── Load Books & Folders ──────────────────────────────────────
 async function loadBooks() {
-  await loadAllFolders(); // Load empty folders too
   try {
-    const snapshot = await db.collection('books')
-      .orderBy('uploadedAt', 'desc')
-      .get();
+    // Load folders
+    const fSnap = await db.collection('folders').get();
+    allFolders = fSnap.docs.map(d => d.id);
 
-    allBooks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    updateStats();
+    // Load books
+    const bSnap = await db.collection('books').orderBy('uploadedAt', 'desc').get();
+    allBooks = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
     renderBooks();
-  } catch (err) {
-    console.error('Error loading books:', err);
-    showToast('Error loading library', 'error');
+  } catch(e) {
+    console.error('loadBooks error:', e);
   }
 }
 
 // ── Render Books ──────────────────────────────────────────────
 function renderBooks() {
-  const search = document.getElementById('searchInput').value.toLowerCase();
-
-  let filtered = allBooks.filter(book => {
-    const matchSearch = !search ||
-      book.title?.toLowerCase().includes(search) ||
-      book.author?.toLowerCase().includes(search);
-    const matchFilter = currentFilter === 'all' ||
-      (currentFilter === 'pdf' && book.fileType === 'pdf') ||
-      (currentFilter === 'epub' && book.fileType === 'epub') ||
-      (currentFilter === 'other' && !['pdf', 'epub'].includes(book.fileType));
-    const matchFolder = currentFolder === 'all' || book.category === currentFolder;
-    return matchSearch && matchFilter && matchFolder;
-  });
-
-  const gridEl = document.getElementById('booksGrid');
-  const listEl = document.getElementById('booksListView');
-  const emptyEl = document.getElementById('emptyState');
+  const gridEl   = document.getElementById('booksGrid');
+  const listEl   = document.getElementById('booksListView');
+  const emptyEl  = document.getElementById('emptyState');
+  const search   = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
 
   gridEl.innerHTML = '';
   listEl.innerHTML = '';
 
-  renderFolders();
+  // Render folder chips
+  renderFolderChips();
+
+  // Filter
+  let filtered = allBooks.filter(book => {
+    const matchSearch = !search ||
+      book.title?.toLowerCase().includes(search) ||
+      book.author?.toLowerCase().includes(search);
+    const matchFilter =
+      currentFilter === 'all' ||
+      currentFilter === 'folders' ||
+      (currentFilter === 'pdf'   && book.fileType === 'pdf') ||
+      (currentFilter === 'epub'  && book.fileType === 'epub') ||
+      (currentFilter === 'other' && !['pdf','epub'].includes(book.fileType));
+    const matchFolder = currentFolder === 'all' || book.category === currentFolder;
+    return matchSearch && matchFilter && matchFolder;
+  });
+
+  // Empty state
   if (filtered.length === 0) {
     emptyEl.style.display = 'block';
+    gridEl.style.display  = 'none';
+    listEl.style.display  = 'none';
     document.getElementById('emptyMsg').textContent =
-      search ? `No results for "${search}"` : 'No books yet. Ask an admin to upload some!';
+      search ? 'No results for "' + search + '"' : 'No books yet.';
+    updateStats();
     return;
   }
+
   emptyEl.style.display = 'none';
 
-  filtered.forEach((book, i) => {
-    if (currentView === 'grid') {
-      gridEl.appendChild(createGridCard(book, i));
-    } else {
-      listEl.appendChild(createListItem(book, i));
-    }
+  if (currentView === 'grid') {
+    gridEl.style.display = 'grid';
+    listEl.style.display = 'none';
+    filtered.forEach((book, i) => gridEl.appendChild(createGridCard(book, i)));
+  } else {
+    gridEl.style.display = 'none';
+    listEl.style.display = 'block';
+    filtered.forEach((book, i) => listEl.appendChild(createListItem(book, i)));
+  }
+
+  updateStats();
+}
+
+// ── Folder Chips ──────────────────────────────────────────────
+function renderFolderChips() {
+  const bar = document.getElementById('folderChipsBar');
+  if (!bar) return;
+
+  const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
+  allFolders.forEach(f => bookFolders.add(f));
+  const folders = ['all', ...bookFolders];
+
+  // Only show bar when Folders tab is active
+  bar.style.display = currentFilter === 'folders' ? 'flex' : 'none';
+  bar.innerHTML = '';
+
+  folders.forEach(folder => {
+    const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
+    const chip = document.createElement('button');
+    chip.className = 'folder-chip' + (currentFolder === folder ? ' active' : '');
+    chip.innerHTML = (folder === 'all' ? '📚 All' : '📁 ' + folder) +
+      ' <span class="chip-count">' + count + '</span>';
+    chip.onclick = () => {
+      currentFolder = folder;
+      renderBooks();
+    };
+    bar.appendChild(chip);
   });
 }
 
@@ -70,33 +109,28 @@ function renderBooks() {
 function createGridCard(book, index) {
   const div = document.createElement('div');
   div.className = 'book-card';
-  div.style.animationDelay = `${index * 0.04}s`;
+  div.style.animationDelay = (index * 0.04) + 's';
 
-  const coverHtml = book.coverUrl
-    ? `<img src="${book.coverUrl}" alt="cover" loading="lazy">`
-    : `<div class="book-cover-placeholder">
-         <div class="book-icon">${getFileIcon(book.fileType)}</div>
-         <div class="book-ext">${book.fileType?.toUpperCase() || 'FILE'}</div>
-       </div>`;
+  const cover = book.coverUrl
+    ? '<img src="' + book.coverUrl + '" alt="cover" loading="lazy">'
+    : '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) + '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
 
-  const downloadBtn = `<a href="${book.downloadUrl}" target="_blank" class="btn btn-ghost btn-sm" title="Download">⬇️</a>`;
-  const adminActions = currentRole === 'admin'
-    ? `<button class="btn btn-danger btn-sm" onclick="deleteBook(event, '${book.id}', '${escapeHtml(book.title)}')">🗑</button>`
+  const adminHtml = currentRole === 'admin'
+    ? '<button class="btn-icon btn-danger" onclick="confirmDelete(event,\'' + book.id + '\',\'' + escapeHtml(book.title) + '\')" title="Delete">🗑</button>'
     : '';
 
-  div.innerHTML = `
-    <div class="book-cover" onclick="openBook('${book.id}')">
-      ${coverHtml}
-    </div>
-    <div class="book-info" onclick="openBook('${book.id}')">
-      <div class="book-title">${escapeHtml(book.title)}</div>
-      <div class="book-meta">${book.author ? escapeHtml(book.author) : book.category || ''}</div>
-    </div>
-    <div class="book-actions">
-      <button class="btn btn-primary btn-sm" style="flex:1" onclick="openBook('${book.id}')">Read</button>
-      ${downloadBtn}
-      ${adminActions}
-    </div>`;
+  div.innerHTML =
+    '<div class="card-cover" onclick="openBook(\'' + book.id + '\')">' + cover + '</div>' +
+    '<div class="card-body">' +
+      '<div class="card-title" onclick="openBook(\'' + book.id + '\')">' + escapeHtml(book.title) + '</div>' +
+      '<div class="card-meta">' + (book.author ? escapeHtml(book.author) : (book.category || '')) + '</div>' +
+    '</div>' +
+    '<div class="card-actions">' +
+      '<button class="btn btn-primary btn-sm" onclick="openBook(\'' + book.id + '\')">Read</button>' +
+      '<a href="' + book.downloadUrl + '" target="_blank" class="btn btn-ghost btn-sm" title="Download">⬇</a>' +
+      adminHtml +
+    '</div>';
+
   return div;
 }
 
@@ -104,177 +138,108 @@ function createGridCard(book, index) {
 function createListItem(book, index) {
   const div = document.createElement('div');
   div.className = 'book-list-item';
-  div.style.animationDelay = `${index * 0.03}s`;
+  div.style.animationDelay = (index * 0.03) + 's';
 
-  const coverHtml = book.coverUrl
-    ? `<img src="${book.coverUrl}" alt="cover">`
+  const cover = book.coverUrl
+    ? '<img src="' + book.coverUrl + '" alt="cover">'
     : getFileIcon(book.fileType);
 
-  const downloadBtn = `<a href="${book.downloadUrl}" target="_blank" class="btn btn-ghost btn-sm" title="Download">⬇️</a>`;
-  const adminActions = currentRole === 'admin'
-    ? `<button class="btn btn-danger btn-sm" onclick="deleteBook(event, '${book.id}', '${escapeHtml(book.title)}')">🗑 Delete</button>`
-    : '';
-
   const date = book.uploadedAt?.toDate
-    ? book.uploadedAt.toDate().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' })
+    ? book.uploadedAt.toDate().toLocaleDateString('en-US', { day:'2-digit', month:'short', year:'numeric' })
     : '';
 
-  div.innerHTML = `
-    <div class="list-cover">${coverHtml}</div>
-    <div class="list-info" onclick="openBook('${book.id}')">
-      <div class="list-title">${escapeHtml(book.title)}</div>
-      <div class="list-meta">${book.author ? escapeHtml(book.author) + ' · ' : ''}${book.category || ''} ${date ? '· ' + date : ''}</div>
-    </div>
-    <div class="list-actions">
-      <button class="btn btn-primary btn-sm" onclick="openBook('${book.id}')">📖 Read</button>
-      ${downloadBtn}
-      ${adminActions}
-    </div>`;
+  const adminHtml = currentRole === 'admin'
+    ? '<button class="btn btn-danger btn-sm" onclick="confirmDelete(event,\'' + book.id + '\',\'' + escapeHtml(book.title) + '\')">🗑 Delete</button>'
+    : '';
+
+  div.innerHTML =
+    '<div class="list-cover" onclick="openBook(\'' + book.id + '\')">' + cover + '</div>' +
+    '<div class="list-body" onclick="openBook(\'' + book.id + '\')">' +
+      '<div class="list-title">' + escapeHtml(book.title) + '</div>' +
+      '<div class="list-meta">' +
+        (book.author ? escapeHtml(book.author) + ' · ' : '') +
+        (book.category || '') + (date ? ' · ' + date : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="list-actions">' +
+      '<button class="btn btn-primary btn-sm" onclick="openBook(\'' + book.id + '\')">📖 Read</button>' +
+      '<a href="' + book.downloadUrl + '" target="_blank" class="btn btn-ghost btn-sm">⬇</a>' +
+      adminHtml +
+    '</div>';
+
   return div;
 }
 
 // ── Stats ─────────────────────────────────────────────────────
 function updateStats() {
   document.getElementById('statTotal').textContent = allBooks.length;
-  document.getElementById('statPDF').textContent  = allBooks.filter(b => b.fileType === 'pdf').length;
-  document.getElementById('statEPUB').textContent = allBooks.filter(b => b.fileType === 'epub').length;
+  document.getElementById('statPDF').textContent   = allBooks.filter(b => b.fileType === 'pdf').length;
+  document.getElementById('statEPUB').textContent  = allBooks.filter(b => b.fileType === 'epub').length;
   document.getElementById('statOther').textContent = allBooks.filter(b => !['pdf','epub'].includes(b.fileType)).length;
 }
 
-// ── Folder Sidebar ────────────────────────────────────────────
-let allFolders = []; // cached folders list
-
-// Load folders once on startup
-async function loadAllFolders() {
-  try {
-    const snapshot = await db.collection('folders').get();
-    allFolders = snapshot.docs.map(d => d.id);
-  } catch(e) { allFolders = []; }
-}
-
-function renderFolders() {
-  const container = document.getElementById('folderList');
-  if (!container) return;
-
-  const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
-  allFolders.forEach(f => bookFolders.add(f));
-  const folders = ['all', ...bookFolders];
-  container.innerHTML = '';
-
-  folders.forEach(folder => {
-    const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
-    const btn = document.createElement('button');
-    btn.className = 'folder-chip' + (currentFolder === folder ? ' active' : '');
-    btn.innerHTML = (folder === 'all' ? '📚 All' : '📁 ' + folder) + ' <span class="folder-count">' + count + '</span>';
-    btn.onclick = () => {
-      currentFolder = folder;
-      document.querySelectorAll('.folder-chip').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderBooks();
-    };
-    container.appendChild(btn);
-  });
-}
-
 // ── View & Filter ─────────────────────────────────────────────
-function setView(view) {
+function setView(view, btn) {
   currentView = view;
-  document.getElementById('booksGrid').style.display = view === 'grid' ? 'grid' : 'none';
-  document.getElementById('booksListView').style.display = view === 'list' ? 'flex' : 'none';
-  document.getElementById('gridBtn').classList.toggle('active', view === 'grid');
-  document.getElementById('listBtn').classList.toggle('active', view === 'list');
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
   renderBooks();
 }
 
-function setFilter(filter, btnEl) {
+function setFilter(filter, btn) {
   currentFilter = filter;
-  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  if (btnEl) btnEl.classList.add('active');
-
-  // Show/hide folder bar
-  const folderBar = document.getElementById('folderFilterBar');
-  if (folderBar) folderBar.style.display = filter === 'folders' ? 'flex' : 'none';
-
-  // Reset folder when leaving folders tab
   if (filter !== 'folders') currentFolder = 'all';
-
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
   renderBooks();
-}
-
-function filterBooks() { renderBooks(); }
-
-// ── Navigation ────────────────────────────────────────────────
-function showLibrary() {
-  document.getElementById('libraryView').style.display = 'block';
-  document.getElementById('readerView').style.display = 'none';
-}
-
-// ── Delete ────────────────────────────────────────────────────
-function deleteBook(event, bookId, title) {
-  event.stopPropagation();
-  bookToDelete = bookId;
-  document.getElementById('deleteBookName').textContent =
-    `"${title}" will be permanently deleted. This cannot be undone.`;
-  document.getElementById('deleteModal').classList.add('open');
-}
-
-function closeDeleteModal() {
-  document.getElementById('deleteModal').classList.remove('open');
-  bookToDelete = null;
-}
-
-async function confirmDelete() {
-  if (!bookToDelete) return;
-  const btn = document.getElementById('confirmDeleteBtn');
-  btn.disabled = true;
-  btn.textContent = 'Deleting...';
-
-  try {
-    // Get book data for storage deletion
-    const bookDoc = await db.collection('books').doc(bookToDelete).get();
-    const book = bookDoc.data();
-
-    // Delete from Storage
-    if (book?.storagePath) {
-      await storage.ref(book.storagePath).delete().catch(() => {});
-    }
-    if (book?.coverPath) {
-      await storage.ref(book.coverPath).delete().catch(() => {});
-    }
-
-    // Delete from Firestore
-    await db.collection('books').doc(bookToDelete).delete();
-
-    closeDeleteModal();
-    showToast('Book deleted successfully', 'success');
-    await loadBooks();
-  } catch (err) {
-    showToast('Error deleting book', 'error');
-    console.error(err);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Delete';
-  }
 }
 
 // ── Open Book ─────────────────────────────────────────────────
-async function openBook(bookId) {
+function openBook(bookId) {
   const book = allBooks.find(b => b.id === bookId);
-  if (!book) return;
+  if (book) openReader(book);
+}
 
-  document.getElementById('libraryView').style.display = 'none';
-  document.getElementById('readerView').style.display = 'block';
-  await openReader(book);
+// ── Delete ────────────────────────────────────────────────────
+let deleteTargetId = null;
+function confirmDelete(e, bookId, title) {
+  e.stopPropagation();
+  deleteTargetId = bookId;
+  document.getElementById('deleteBookTitle').textContent = '"' + title + '"';
+  document.getElementById('deleteModal').classList.add('open');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('open');
+  deleteTargetId = null;
+}
+async function executeDelete() {
+  if (!deleteTargetId) return;
+  try {
+    await db.collection('books').doc(deleteTargetId).delete();
+    allBooks = allBooks.filter(b => b.id !== deleteTargetId);
+    closeDeleteModal();
+    renderBooks();
+    showToast('Book deleted.', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
 // ── Helpers ───────────────────────────────────────────────────
 function getFileIcon(type) {
-  const icons = { pdf: '📄', epub: '📗', txt: '📝', doc: '📘', docx: '📘' };
+  const icons = { pdf: '📕', epub: '📗', txt: '📄', doc: '📝', docx: '📝' };
   return icons[type] || '📁';
 }
-
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
