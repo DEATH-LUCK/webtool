@@ -189,7 +189,9 @@ async function openEPUB(url) {
     epubEl.style.padding = '0';
     epubEl.style.background = 'transparent';
     epubEl.style.width = '100%';
-    epubEl.style.height = isMobile ? '85vh' : '80vh';
+    epubEl.style.height = 'calc(100vh - 120px)';
+    epubEl.style.overflowY = 'auto';
+    epubEl.style.webkitOverflowScrolling = 'touch';
 
     // Destroy previous instance
     if (epubRendition) { epubRendition.destroy(); epubRendition = null; }
@@ -200,7 +202,8 @@ async function openEPUB(url) {
       width: '100%',
       height: '100%',
       spread: 'none',
-      flow: isMobile ? 'scrolled-doc' : 'paginated',
+      flow: 'scrolled-doc',
+      allowScriptedContent: true,
     });
 
     await epubRendition.display();
