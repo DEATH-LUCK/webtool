@@ -1,6 +1,10 @@
 // ============================================================
 // ADMIN.JS — Admin Panel
 // ============================================================
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function openAdminPanel() {
   if (currentRole !== 'admin') return;
