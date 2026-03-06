@@ -28,6 +28,10 @@ function showApp() {
   if (currentRole === 'admin') {
     document.getElementById('navAdminBadge').style.display = 'inline-block';
     document.getElementById('uploadNavBtn').style.display = 'inline-flex';
+    const apBtn = document.getElementById('adminPanelBtn');
+    const mapBtn = document.getElementById('mobileAdminPanelBtn');
+    if (apBtn) apBtn.style.display = 'inline-flex';
+    if (mapBtn) mapBtn.style.display = 'block';
   }
 
   showLibrary();
