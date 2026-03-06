@@ -2,7 +2,6 @@
 // ADMIN.JS — Admin Panel: Users, Folders, Move Books
 // ============================================================
 
-// ── Show/Hide Admin Panel ─────────────────────────────────────
 function openAdminPanel() {
   document.getElementById('adminPanel').classList.add('open');
   loadAdminPanel();
@@ -10,24 +9,35 @@ function openAdminPanel() {
 function closeAdminPanel() {
   document.getElementById('adminPanel').classList.remove('open');
 }
-
 async function loadAdminPanel() {
   await loadUsersTab();
   await loadFoldersTab();
 }
 
+// ── Switch Tabs ───────────────────────────────────────────────
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+  document.getElementById('adminTab_' + tab).style.display = 'block';
+  event.target.classList.add('active');
+}
+
 // ── USERS TAB ─────────────────────────────────────────────────
 async function loadUsersTab() {
   const container = document.getElementById('adminUsersList');
-  container.innerHTML = '<p style="color:var(--text2)">Loading...</p>';
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text2); padding:12px;">Loading...</p>';
   try {
     const snapshot = await db.collection('users').get();
     container.innerHTML = '';
-    if (snapshot.empty) { container.innerHTML = '<p style="color:var(--text2)">No users found.</p>'; return; }
-
+    if (snapshot.empty) {
+      container.innerHTML = '<p style="color:var(--text2); padding:12px;">No users found.</p>';
+      return;
+    }
     snapshot.docs.forEach(doc => {
       const data = doc.data();
       const isAdmin = data.role === 'admin';
+      const isSelf = doc.id === currentUser.email || doc.id === currentUser.uid;
       const div = document.createElement('div');
       div.className = 'admin-user-row';
       div.innerHTML = `
@@ -36,48 +46,31 @@ async function loadUsersTab() {
           <div class="admin-user-role ${isAdmin ? 'role-admin' : 'role-user'}">${isAdmin ? '👑 Admin' : '👤 User'}</div>
         </div>
         <div class="admin-user-actions">
-          ${doc.id !== currentUser.email ? `
-            <button class="btn btn-ghost btn-sm" onclick="toggleAdminRole('${doc.id}', ${isAdmin})">
-              ${isAdmin ? '⬇️ Make User' : '⬆️ Make Admin'}
-            </button>
-          ` : '<span style="color:var(--text2); font-size:0.75rem;">You</span>'}
+          ${!isSelf ? `<button class="btn btn-ghost btn-sm" onclick="toggleAdminRole('${doc.id}', ${isAdmin})">${isAdmin ? '⬇️ Make User' : '⬆️ Make Admin'}</button>` : '<span style="color:var(--text2);font-size:0.75rem;">You</span>'}
         </div>`;
       container.appendChild(div);
     });
   } catch(e) {
-    container.innerHTML = `<p style="color:var(--danger)">Error: ${e.message}</p>`;
+    container.innerHTML = '<p style="color:var(--danger); padding:12px;">Error: ' + e.message + '</p>';
   }
 }
 
-async function toggleAdminRole(email, isCurrentlyAdmin) {
+async function toggleAdminRole(userId, isCurrentlyAdmin) {
   try {
-    // Find user by email
-    const snapshot = await db.collection('users').where('email', '==', email).get();
-    let userId = null;
-
-    if (!snapshot.empty) {
-      userId = snapshot.docs[0].id;
-    } else {
-      // Try using email as doc ID
-      userId = email;
-    }
-
     const newRole = isCurrentlyAdmin ? 'user' : 'admin';
     await db.collection('users').doc(userId).update({ role: newRole });
-    showToast(`${email} is now ${newRole}! ✅`, 'success');
+    showToast(userId + ' is now ' + newRole + '!', 'success');
     await loadUsersTab();
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
   }
 }
 
-// Add new admin by email
 async function addNewAdmin() {
-  const email = document.getElementById('newAdminEmail').value.trim();
+  const emailInput = document.getElementById('newAdminEmail');
+  const email = emailInput.value.trim();
   if (!email) { showToast('Email daalo', 'error'); return; }
-
   try {
-    // Check if user exists
     const snapshot = await db.collection('users').get();
     let found = false;
     for (const doc of snapshot.docs) {
@@ -88,11 +81,10 @@ async function addNewAdmin() {
       }
     }
     if (!found) {
-      // Create user doc with admin role (they'll get it on next login)
       await db.collection('users').doc(email).set({ role: 'admin', email: email }, { merge: true });
     }
-    showToast(`${email} ko admin bana diya! ✅`, 'success');
-    document.getElementById('newAdminEmail').value = '';
+    showToast(email + ' ko admin bana diya!', 'success');
+    emailInput.value = '';
     await loadUsersTab();
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
@@ -102,18 +94,21 @@ async function addNewAdmin() {
 // ── FOLDERS TAB ───────────────────────────────────────────────
 async function loadFoldersTab() {
   const container = document.getElementById('adminFoldersList');
-  container.innerHTML = '<p style="color:var(--text2)">Loading...</p>';
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--text2); padding:12px;">Loading...</p>';
+
   try {
-    // Get books
+    // Load books
     const booksSnap = await db.collection('books').get();
     const folderMap = {};
     booksSnap.docs.forEach(doc => {
-      const cat = doc.data().category || 'General';
+      const d = doc.data();
+      const cat = d.category || 'General';
       if (!folderMap[cat]) folderMap[cat] = [];
-      folderMap[cat].push({ id: doc.id, ...doc.data() });
+      folderMap[cat].push({ id: doc.id, title: d.title || 'Untitled' });
     });
 
-    // Get empty folders too
+    // Load empty folders
     const foldersSnap = await db.collection('folders').get();
     foldersSnap.docs.forEach(doc => {
       if (!folderMap[doc.id]) folderMap[doc.id] = [];
@@ -122,75 +117,78 @@ async function loadFoldersTab() {
     const allFolderNames = Object.keys(folderMap);
     container.innerHTML = '';
 
-    // ── New folder input ──
-    const addDiv = document.createElement('div');
-    addDiv.className = 'admin-new-folder';
-    addDiv.innerHTML = `
-      <input type="text" id="newFolderNameInput" class="form-input" placeholder="New folder name..." style="flex:1;">
-      <button class="btn btn-primary btn-sm" onclick="createNewFolder()">➕ Create</button>`;
-    container.appendChild(addDiv);
+    // New folder input
+    container.innerHTML = `
+      <div class="admin-new-folder">
+        <input type="text" id="newFolderNameInput" class="form-input" placeholder="New folder name..." style="flex:1; min-width:0;">
+        <button class="btn btn-primary btn-sm" onclick="createNewFolder()">➕ Create</button>
+      </div>`;
 
-    // ── Folder list ──
     if (allFolderNames.length === 0) {
       container.innerHTML += '<p style="color:var(--text2); text-align:center; padding:20px;">No folders yet</p>';
       return;
     }
 
-    allFolderNames.forEach(folder => {
+    allFolderNames.sort().forEach(folder => {
       const books = folderMap[folder];
-      const div = document.createElement('div');
-      div.className = 'admin-folder-row';
+      const safeId = 'fb_' + folder.replace(/[^a-zA-Z0-9]/g, '_');
 
-      // Books list inside folder
       const booksHtml = books.length === 0
-        ? '<p style="color:var(--text2); font-size:0.8rem; padding:8px 12px;">Empty folder</p>'
-        : books.map(b => `
-            <div class="admin-book-row">
-              <span class="admin-book-title">📄 ${escapeHtml(b.title)}</span>
-              <select class="form-input admin-move-select" onchange="moveBook('${b.id}', this.value, '${folder}')">
-                <option value="">📂 Move to...</option>
-                ${allFolderNames.filter(f => f !== folder).map(f => `<option value="${f}">📁 ${f}</option>`).join('')}
-              </select>
-            </div>`).join('');
+        ? '<p style="color:var(--text2); font-size:0.82rem; padding:12px;">Empty folder — upload karo ya delete karo</p>'
+        : books.map(b =>
+            '<div class="admin-book-row">' +
+            '<span class="admin-book-title">📄 ' + b.title + '</span>' +
+            '<select class="admin-move-select" onchange="moveBook(\'' + b.id + '\', this.value)">' +
+            '<option value="">📂 Move to...</option>' +
+            allFolderNames.filter(f => f !== folder).map(f => '<option value="' + f + '">📁 ' + f + '</option>').join('') +
+            '</select></div>'
+          ).join('');
 
-      div.innerHTML = `
-        <div class="admin-folder-header" onclick="toggleFolderExpand('folder_${folder.replace(/\s/g,'_')}')" style="cursor:pointer;">
-          <span>📁 <strong>${folder}</strong> <span style="color:var(--text2); font-size:0.8rem;">(${books.length} books)</span></span>
-          <div style="display:flex; gap:8px; align-items:center;">
-            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteFolder('${folder}', ${books.length})">🗑 Delete</button>
-            <span class="folder-chevron">▼</span>
-          </div>
-        </div>
-        <div class="admin-folder-books" id="folder_${folder.replace(/\s/g,'_')}" style="display:none;">
-          ${booksHtml}
-        </div>`;
-      container.appendChild(div);
+      const folderDiv = document.createElement('div');
+      folderDiv.className = 'admin-folder-row';
+      folderDiv.innerHTML =
+        '<div class="admin-folder-header" onclick="toggleFolderExpand(\'' + safeId + '\')">' +
+          '<div style="display:flex; align-items:center; gap:8px;">' +
+            '<span class="folder-chevron" id="chev_' + safeId + '">▶</span>' +
+            '<strong>📁 ' + folder + '</strong>' +
+            '<span style="color:var(--text2); font-size:0.78rem;">(' + books.length + ' books)</span>' +
+          '</div>' +
+          '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteFolder(\'' + folder + '\', ' + books.length + ')">🗑 Delete</button>' +
+        '</div>' +
+        '<div class="admin-folder-books" id="' + safeId + '" style="display:none;">' +
+          booksHtml +
+        '</div>';
+
+      container.appendChild(folderDiv);
     });
 
   } catch(e) {
-    container.innerHTML = `<p style="color:var(--danger)">Error: ${e.message}</p>`;
+    container.innerHTML = '<p style="color:var(--danger); padding:12px;">Error: ' + e.message + '</p>';
   }
 }
 
 function toggleFolderExpand(id) {
   const el = document.getElementById(id);
+  const chev = document.getElementById('chev_' + id);
   if (!el) return;
   const isOpen = el.style.display !== 'none';
   el.style.display = isOpen ? 'none' : 'block';
+  if (chev) chev.textContent = isOpen ? '▶' : '▼';
 }
 
-// Create new empty folder (just a placeholder — real folder created on upload)
 async function createNewFolder() {
-  const name = document.getElementById('newFolderNameInput').value.trim();
+  const input = document.getElementById('newFolderNameInput');
+  const name = input ? input.value.trim() : '';
   if (!name) { showToast('Folder ka naam daalo', 'error'); return; }
-
-  // Store folder in a folders collection
   try {
-    await db.collection('folders').doc(name).set({ name, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-    showToast(`📁 "${name}" folder bana diya!`, 'success');
-    document.getElementById('newFolderNameInput').value = '';
+    await db.collection('folders').doc(name).set({
+      name: name,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    showToast('📁 "' + name + '" folder bana diya!', 'success');
+    if (input) input.value = '';
     addFolderToDropdown(name);
-    await loadAllFolders(); // Refresh folder cache
+    if (typeof loadAllFolders === 'function') await loadAllFolders();
     await loadFoldersTab();
     await loadBooks();
   } catch(e) {
@@ -207,16 +205,16 @@ function addFolderToDropdown(name) {
     opt.value = name;
     opt.textContent = '📁 ' + name;
     const lastOpt = select.querySelector('option[value="__new__"]');
-    select.insertBefore(opt, lastOpt);
+    if (lastOpt) select.insertBefore(opt, lastOpt);
+    else select.appendChild(opt);
   }
 }
 
-// Move book to another folder
-async function moveBook(bookId, newFolder, oldFolder) {
+async function moveBook(bookId, newFolder) {
   if (!newFolder) return;
   try {
     await db.collection('books').doc(bookId).update({ category: newFolder });
-    showToast(`Book moved to "${newFolder}"! ✅`, 'success');
+    showToast('Book moved to "' + newFolder + '"!', 'success');
     await loadFoldersTab();
     await loadBooks();
   } catch(e) {
@@ -224,30 +222,24 @@ async function moveBook(bookId, newFolder, oldFolder) {
   }
 }
 
-// Delete folder and all its books
 async function deleteFolder(folder, bookCount) {
-  if (!confirm(`"${folder}" folder aur uski ${bookCount} books DELETE hongi. Pakka?`)) return;
+  const msg = bookCount > 0
+    ? '"' + folder + '" folder aur uski ' + bookCount + ' books DELETE hongi. Pakka?'
+    : '"' + folder + '" folder delete karna chahte ho?';
+  if (!confirm(msg)) return;
   try {
-    const snapshot = await db.collection('books').where('category', '==', folder).get();
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
-
-    // Also delete folder doc if exists
+    if (bookCount > 0) {
+      const snap = await db.collection('books').where('category', '==', folder).get();
+      const batch = db.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
     await db.collection('folders').doc(folder).delete().catch(() => {});
-
-    showToast(`"${folder}" folder delete ho gaya! 🗑`, 'success');
+    showToast('"' + folder + '" delete ho gaya!', 'success');
+    if (typeof loadAllFolders === 'function') await loadAllFolders();
     await loadFoldersTab();
     await loadBooks();
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
   }
-}
-
-// Switch admin panel tabs
-function switchAdminTab(tab) {
-  document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
-  document.getElementById(`adminTab_${tab}`).style.display = 'block';
-  event.target.classList.add('active');
 }
