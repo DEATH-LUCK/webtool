@@ -198,12 +198,14 @@ async function openEPUB(url) {
     if (epubBook) { epubBook.destroy(); epubBook = null; }
 
     epubBook = ePub(url);
+    const readerH = window.innerHeight - (isMobile ? 140 : 120);
     epubRendition = epubBook.renderTo('epubReader', {
       width: '100%',
-      height: '100%',
+      height: readerH,
       spread: 'none',
       flow: 'scrolled-doc',
       allowScriptedContent: true,
+      manager: 'continuous',
     });
 
     await epubRendition.display();
@@ -236,12 +238,24 @@ async function openEPUB(url) {
       updateNavButtons();
     });
 
-    // Override changePage for EPUB
+    // Override changePage for EPUB — works for ALL buttons
     window.changePage = async (delta) => {
       if (!epubRendition) return;
       if (delta > 0) await epubRendition.next();
       else await epubRendition.prev();
     };
+
+    // Also wire mobile buttons directly
+    const mPrev = document.getElementById('mobilePrevBtn');
+    const mNext = document.getElementById('mobileNextBtn');
+    if (mPrev) mPrev.onclick = () => epubRendition?.prev();
+    if (mNext) mNext.onclick = () => epubRendition?.next();
+
+    // Enable nav buttons for EPUB
+    if (mPrev) mPrev.disabled = false;
+    if (mNext) mNext.disabled = false;
+    document.getElementById('prevPage').disabled = false;
+    document.getElementById('nextPage').disabled = false;
 
     document.getElementById('pageInfo').textContent = 'EPUB Loading...';
 
@@ -278,9 +292,21 @@ function showDownloadOption(url) {
     </div>`;
 }
 
-// ── Swipe (mobile only, backup) ───────────────────────────────
+// ── Swipe Navigation ─────────────────────────────────────────
 document.addEventListener('touchstart', e => {
   touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', e => {
+  if (document.getElementById('readerView').style.display === 'none') return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  // Only horizontal swipe (not scroll)
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+    if (dx < 0) changePage(1);   // swipe left = next
+    else        changePage(-1);  // swipe right = prev
+  }
 }, { passive: true });
 
 // ── Keyboard ──────────────────────────────────────────────────
