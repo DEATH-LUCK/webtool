@@ -141,16 +141,27 @@ function updateStats() {
 }
 
 // ── Folder Sidebar ────────────────────────────────────────────
-function renderFolders() {
-  const folders = ['all', ...new Set(allBooks.map(b => b.category).filter(Boolean))];
+async function renderFolders() {
   const container = document.getElementById('folderList');
   if (!container) return;
+
+  // Get folders from books
+  const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
+
+  // Also get empty folders from Firestore
+  try {
+    const snapshot = await db.collection('folders').get();
+    snapshot.docs.forEach(doc => bookFolders.add(doc.id));
+  } catch(e) {}
+
+  const folders = ['all', ...bookFolders];
   container.innerHTML = '';
+
   folders.forEach(folder => {
     const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
     const btn = document.createElement('button');
     btn.className = 'folder-btn' + (currentFolder === folder ? ' active' : '');
-    btn.innerHTML = `<span>${folder === 'all' ? '📚 All Books' : '📁 ' + folder}</span><span class="folder-count">${count}</span>`;
+    btn.innerHTML = `<span>${folder === 'all' ? '📚 All' : '📁 ' + folder}</span><span class="folder-count">${count}</span>`;
     btn.onclick = () => {
       currentFolder = folder;
       document.querySelectorAll('.folder-btn').forEach(b => b.classList.remove('active'));
