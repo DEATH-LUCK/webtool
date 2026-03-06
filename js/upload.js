@@ -127,15 +127,11 @@ async function uploadBook() {
 
     document.getElementById('progressText').textContent = 'Saving to database...';
 
-    // Generate cover for PDF
+    // Cover: generate locally from PDF, no upload needed
     let coverUrl = null;
     if (fileType === 'pdf') {
       try {
-        const coverDataUrl = await generatePDFCover(selectedFile);
-        if (coverDataUrl) {
-          const blob = await (await fetch(coverDataUrl)).blob();
-          coverUrl = await uploadToCloudinary(new File([blob], 'cover.jpg', {type:'image/jpeg'}), 'covers', ()=>{});
-        }
+        coverUrl = await generatePDFCover(selectedFile);
       } catch(e) {}
     }
 
@@ -172,7 +168,7 @@ function uploadToCloudinary(file, folder, onProgress) {
     fd.append('file', file);
     fd.append('upload_preset', CLOUDINARY_PRESET);
     fd.append('folder', folder);
-    const resourceType = file.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' : 'raw';
+    const resourceType = 'raw';
     const xhr = new XMLHttpRequest();
     xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/' + resourceType + '/upload');
     xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round(e.loaded/e.total*90)); };
