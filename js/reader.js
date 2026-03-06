@@ -36,6 +36,8 @@ async function openReader(book) {
 
   if (book.fileType === 'pdf') {
     await openPDF(book.downloadUrl);
+  } else if (book.fileType === 'epub') {
+    await openEPUB(book.downloadUrl);
   } else if (book.fileType === 'txt') {
     await openTXT(book.downloadUrl);
   } else {
@@ -171,6 +173,78 @@ async function changeZoom(delta) {
     await renderAllPages();
   } else {
     await renderPage(currentPage);
+  }
+}
+
+
+// ── EPUB Reader ───────────────────────────────────────────────
+let epubBook = null;
+let epubRendition = null;
+
+async function openEPUB(url) {
+  try {
+    document.getElementById('readerLoading').style.display = 'none';
+    const epubEl = document.getElementById('epubReader');
+    epubEl.style.display = 'block';
+    epubEl.style.padding = '0';
+    epubEl.style.background = 'transparent';
+    epubEl.style.width = '100%';
+    epubEl.style.height = isMobile ? '85vh' : '80vh';
+
+    // Destroy previous instance
+    if (epubRendition) { epubRendition.destroy(); epubRendition = null; }
+    if (epubBook) { epubBook.destroy(); epubBook = null; }
+
+    epubBook = ePub(url);
+    epubRendition = epubBook.renderTo('epubReader', {
+      width: '100%',
+      height: '100%',
+      spread: 'none',
+      flow: isMobile ? 'scrolled-doc' : 'paginated',
+    });
+
+    await epubRendition.display();
+
+    // Style the epub content
+    epubRendition.themes.default({
+      body: {
+        'font-family': "'DM Sans', sans-serif !important",
+        'line-height': '1.8 !important',
+        'font-size': isMobile ? '1rem !important' : '0.95rem !important',
+        'color': document.body.classList.contains('light-mode') ? '#1a1612 !important' : '#e8e0d0 !important',
+        'background': document.body.classList.contains('light-mode') ? '#f5f0e8 !important' : '#141210 !important',
+        'padding': '20px !important',
+      }
+    });
+
+    // Page tracking
+    epubBook.ready.then(() => {
+      totalPages = epubBook.spine ? epubBook.spine.length : 1;
+      document.getElementById('pageInfo').textContent = `Chapter 1 / ${totalPages}`;
+      document.getElementById('mobilePageInfo').textContent = `1/${totalPages}`;
+      updateNavButtons();
+    });
+
+    epubRendition.on('relocated', (location) => {
+      const current = location.start.index + 1;
+      document.getElementById('pageInfo').textContent = `Chapter ${current} / ${totalPages}`;
+      document.getElementById('mobilePageInfo').textContent = `${current}/${totalPages}`;
+      currentPage = current;
+      updateNavButtons();
+    });
+
+    // Override changePage for EPUB
+    window.changePage = async (delta) => {
+      if (!epubRendition) return;
+      if (delta > 0) await epubRendition.next();
+      else await epubRendition.prev();
+    };
+
+    document.getElementById('pageInfo').textContent = 'EPUB Loading...';
+
+  } catch(err) {
+    console.error('EPUB error:', err);
+    showDownloadOption(url);
   }
 }
 
