@@ -64,18 +64,26 @@
       <div class="nav-logo" onclick="showLibrary()" style="cursor:pointer">
         <span>📚</span> My Library
       </div>
-      <div class="nav-actions">
+
+      <!-- Desktop nav actions -->
+      <div class="nav-actions" id="desktopNav">
         <div class="nav-user" id="navUserEmail"></div>
         <div class="badge-admin" id="navAdminBadge" style="display:none">Admin</div>
-        <button class="btn btn-ghost btn-sm" id="uploadNavBtn" style="display:none" onclick="openUploadModal()">
-          ＋ Upload
-        </button>
-        <button class="btn btn-ghost btn-sm" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle theme">
-          🌙
-        </button>
-        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">
-          Sign Out
-        </button>
+        <button class="btn btn-ghost btn-sm" id="uploadNavBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
+        <button class="btn btn-ghost btn-sm" id="themeToggleBtn" onclick="toggleTheme()">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
+      </div>
+
+      <!-- Mobile hamburger -->
+      <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
+
+      <!-- Mobile dropdown menu -->
+      <div class="mobile-menu" id="mobileMenu">
+        <div class="mobile-menu-user" id="mobileUserEmail"></div>
+        <div class="mobile-menu-item" id="mobileAdminBadge" style="display:none"><span class="badge-admin">Admin</span></div>
+        <button class="mobile-menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); toggleMobileMenu()">＋ Upload Book</button>
+        <button class="mobile-menu-item" onclick="toggleTheme(); toggleMobileMenu()" id="mobileThemeBtn">🌙 Dark / Light Mode</button>
+        <button class="mobile-menu-item danger" onclick="handleLogout()">Sign Out</button>
       </div>
     </div>
   </nav>
