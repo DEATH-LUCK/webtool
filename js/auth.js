@@ -56,14 +56,16 @@ function showApp() {
   if (mEmailEl && currentUser) mEmailEl.textContent = currentUser.email;
 
   if (currentRole === 'admin') {
-    ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
+    ['navAdminBadge','navUploadBtn','navAdminBtn','navBulkBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'inline-flex';
     });
-    ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn'].forEach(id => {
+    ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn','mobileBulkBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
     });
+    const btBtn = document.getElementById('bulkToggleBtn');
+    if (btBtn) btBtn.style.display = 'inline-flex';
   }
   loadBooks();
 }

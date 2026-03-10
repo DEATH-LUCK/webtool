@@ -808,3 +808,193 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
   .move-select { flex: 1 !important; width: auto !important; }
   .user-actions { flex-wrap: wrap; }
 }
+
+/* ════════════════════════════════════════════════
+   NEW FEATURES CSS — Dashboard, Bulk, Activity,
+   Settings, Access Control, Invite
+════════════════════════════════════════════════ */
+
+/* ─── Dashboard ──────────────────────────────── */
+.dash-stats-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-bottom: 18px;
+}
+.dash-stat-card {
+  background: var(--ink3); border: 1px solid var(--line);
+  border-radius: 12px; padding: 16px 14px; text-align: center;
+  transition: border-color .18s;
+}
+.dash-stat-card:hover { border-color: var(--amber); }
+.dash-stat-icon { font-size: 1.4rem; margin-bottom: 6px; }
+.dash-stat-value {
+  font-family: var(--f-head); font-style: italic;
+  font-size: 1.5rem; color: var(--amber); line-height: 1;
+  margin-bottom: 3px;
+}
+.dash-stat-label { font-size: .75rem; font-weight: 600; color: var(--cream); }
+.dash-stat-sub   { font-size: .67rem; color: var(--cream3); margin-top: 2px; }
+
+.dash-section { margin-bottom: 16px; }
+.dash-section-title {
+  font-size: .72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--cream3); margin-bottom: 10px;
+}
+
+.dash-type-bar {
+  display: flex; height: 8px; border-radius: 6px; overflow: hidden;
+  background: var(--ink4); margin-bottom: 8px;
+}
+.dash-type-seg { height: 100%; min-width: 2px; transition: width .4s; }
+.seg-pdf   { background: var(--amber); }
+.seg-epub  { background: #5a9a6a; }
+.seg-other { background: var(--cream3); }
+.dash-type-legend { font-size: .7rem; color: var(--cream3); }
+.leg-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; margin-right: 3px; vertical-align: middle;
+}
+
+.dash-recent-list { display: flex; flex-direction: column; gap: 4px; }
+.dash-recent-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+  background: var(--ink3); transition: background .15s;
+}
+.dash-recent-item:hover { background: var(--ink4); }
+.dash-recent-icon { font-size: 1.1rem; flex-shrink: 0; }
+.dash-recent-info { flex: 1; min-width: 0; }
+.dash-recent-title { display: block; font-size: .8rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-recent-meta  { display: block; font-size: .68rem; color: var(--cream3); }
+.dash-recent-size  { font-size: .7rem; color: var(--cream3); flex-shrink: 0; }
+
+/* ─── Activity Log ───────────────────────────── */
+.activity-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px; border-radius: 8px;
+  border-bottom: 1px solid var(--line);
+  transition: background .12s;
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-item:hover { background: var(--ink3); }
+.activity-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; width: 22px; text-align: center; }
+.activity-info { flex: 1; min-width: 0; }
+.activity-desc { font-size: .82rem; color: var(--cream); }
+.activity-meta { font-size: .7rem; color: var(--cream3); margin-top: 2px; }
+.activity-index-msg {
+  padding: 16px; background: var(--ink3); border: 1px solid var(--amber);
+  border-radius: 10px; font-size: .82rem; color: var(--amber); line-height: 1.6;
+}
+.activity-index-msg code { background: var(--ink4); padding: 1px 5px; border-radius: 4px; font-size: .8rem; }
+
+/* ─── Settings ───────────────────────────────── */
+.settings-toggle {
+  display: flex; align-items: center; gap: 10px;
+  font-size: .85rem; cursor: pointer; padding: 8px 0;
+  border-bottom: 1px solid var(--line); color: var(--cream);
+}
+.settings-toggle:last-child { border-bottom: none; }
+.settings-toggle input[type="checkbox"] {
+  width: 16px; height: 16px; flex-shrink: 0;
+  accent-color: var(--amber); cursor: pointer;
+}
+
+/* ─── Access Control ─────────────────────────── */
+.access-restricted-badge {
+  font-size: .63rem; color: var(--amber);
+  background: var(--amber-fog); border: 1px solid var(--amber);
+  border-radius: 6px; padding: 1px 6px; margin-left: 6px;
+  vertical-align: middle;
+}
+.access-panel {
+  width: 100%; margin-top: 8px;
+  background: var(--ink2); border: 1px solid var(--amber);
+  border-radius: 10px; padding: 14px;
+  grid-column: 1 / -1;
+}
+.access-panel-title {
+  font-size: .82rem; color: var(--cream2); margin-bottom: 10px; line-height: 1.5;
+}
+.access-all-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .82rem; cursor: pointer; margin-bottom: 10px;
+  color: var(--cream);
+}
+.access-all-toggle input { width: 14px; height: 14px; accent-color: var(--amber); }
+.access-folder-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 5px; margin-bottom: 4px;
+}
+.access-folder-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .78rem; cursor: pointer; padding: 5px 8px;
+  border-radius: 6px; background: var(--ink3);
+  transition: background .12s; color: var(--cream);
+}
+.access-folder-item:hover { background: var(--ink4); }
+.access-folder-item input { width: 13px; height: 13px; accent-color: var(--amber); }
+
+/* ─── Invite ─────────────────────────────────── */
+.invite-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--line); font-size: .8rem;
+}
+.invite-item:last-child { border-bottom: none; }
+.invite-email { flex: 1; color: var(--cream); overflow: hidden; text-overflow: ellipsis; }
+.invite-status {
+  font-size: .65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; padding: 2px 7px; border-radius: 8px;
+}
+.status-pending { background: var(--amber-fog); color: var(--amber); border: 1px solid var(--amber); }
+.status-accepted { background: rgba(64,120,80,.15); color: var(--green); border: 1px solid var(--green); }
+
+/* ─── Bulk Actions ───────────────────────────── */
+.bulk-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-bottom: 14px;
+  background: var(--ink3); border: 1px solid var(--amber);
+  border-radius: 10px; flex-wrap: wrap;
+  animation: fadeUp .2s var(--spring) both;
+}
+.bulk-count {
+  font-size: .82rem; font-weight: 600; color: var(--amber);
+  white-space: nowrap; padding-right: 4px;
+}
+.active-bulk { border-color: var(--amber) !important; color: var(--amber) !important; }
+
+.bulk-card { position: relative; }
+.bulk-check-wrap {
+  position: absolute; top: 7px; left: 7px; z-index: 10;
+  width: 20px; height: 20px; cursor: pointer;
+}
+.bulk-checkbox {
+  width: 16px !important; height: 16px !important;
+  accent-color: var(--amber); cursor: pointer;
+  border-radius: 4px;
+}
+
+/* ─── Bulk Upload Modal ──────────────────────── */
+.bulk-file-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; border-radius: 8px; background: var(--ink3);
+  margin-bottom: 5px;
+}
+.bulk-file-icon { font-size: 1.1rem; flex-shrink: 0; }
+.bulk-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bulk-title-input {
+  width: 100% !important; padding: 5px 9px !important;
+  font-size: .8rem !important; border-radius: 6px !important;
+}
+.bulk-file-size { font-size: .68rem; color: var(--cream3); }
+.bulk-remove-btn { flex-shrink: 0; }
+
+/* ─── Admin tabs scrollable on small screens ─── */
+@media (max-width: 600px) {
+  .admin-tabs {
+    overflow-x: auto; scrollbar-width: none; padding: 0 8px;
+    gap: 0;
+  }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+  .admin-tab-btn { font-size: .72rem; padding: 11px 8px; white-space: nowrap; }
+  .dash-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .access-folder-grid { grid-template-columns: 1fr 1fr; }
+}

@@ -93,6 +93,20 @@ function createGridCard(book, index) {
   card.className = 'book-card';
   card.style.animationDelay = (index * 0.04) + 's';
 
+  // Bulk checkbox (only in bulk mode)
+  if (bulkMode) {
+    const cbWrap = document.createElement('label');
+    cbWrap.className = 'bulk-check-wrap';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.className = 'bulk-checkbox';
+    cb.dataset.bookid = book.id;
+    cb.checked = bulkSelected.has(book.id);
+    cb.onclick = (e) => { e.stopPropagation(); toggleBookSelect(book.id, cb); };
+    cbWrap.appendChild(cb);
+    card.appendChild(cbWrap);
+    card.classList.add('bulk-card');
+  }
+
   // Cover
   const coverDiv = document.createElement('div');
   coverDiv.className = 'card-cover';
@@ -318,4 +332,108 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ════════════════════════════════════════════════
+// BULK ACTIONS
+// ════════════════════════════════════════════════
+let bulkMode    = false;
+let bulkSelected = new Set();
+
+function toggleBulkMode() {
+  bulkMode = !bulkMode;
+  bulkSelected.clear();
+  document.getElementById('bulkToolbar').style.display = bulkMode ? 'flex' : 'none';
+  document.getElementById('bulkToggleBtn').textContent = bulkMode ? '✕ Cancel' : '☑ Select';
+  document.getElementById('bulkToggleBtn').className   = bulkMode ? 'btn btn-ghost btn-sm active-bulk' : 'btn btn-ghost btn-sm';
+  renderBooks();
+}
+
+function toggleBookSelect(bookId, checkbox) {
+  if (checkbox.checked) { bulkSelected.add(bookId); }
+  else                  { bulkSelected.delete(bookId); }
+  updateBulkToolbar();
+}
+
+function toggleSelectAll() {
+  const visible = allBooks.filter(b => {
+    const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+    const matchSearch = !search || b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
+    const matchFilter = currentFilter === 'all' || currentFilter === 'folders' ||
+      (currentFilter === 'pdf' && b.fileType === 'pdf') ||
+      (currentFilter === 'epub' && b.fileType === 'epub') ||
+      (currentFilter === 'other' && !['pdf','epub'].includes(b.fileType));
+    const matchFolder = currentFolder === 'all' || b.category === currentFolder;
+    return matchSearch && matchFilter && matchFolder;
+  });
+  const allChecked = visible.every(b => bulkSelected.has(b.id));
+  visible.forEach(b => allChecked ? bulkSelected.delete(b.id) : bulkSelected.add(b.id));
+  document.querySelectorAll('.bulk-checkbox').forEach(cb => {
+    const id = cb.dataset.bookid;
+    cb.checked = bulkSelected.has(id);
+  });
+  updateBulkToolbar();
+}
+
+function updateBulkToolbar() {
+  const cnt = bulkSelected.size;
+  const countEl = document.getElementById('bulkCount');
+  if (countEl) countEl.textContent = cnt + ' selected';
+  const delBtn  = document.getElementById('bulkDeleteBtn');
+  const movBtn  = document.getElementById('bulkMoveBtn');
+  if (delBtn) delBtn.disabled = cnt === 0;
+  if (movBtn) movBtn.disabled = cnt === 0;
+}
+
+async function bulkDelete() {
+  if (!bulkSelected.size) return;
+  const cnt = bulkSelected.size;
+  if (!confirm('Delete ' + cnt + ' book' + (cnt !== 1 ? 's' : '') + '? Cannot be undone.')) return;
+  try {
+    const batch = db.batch();
+    bulkSelected.forEach(id => batch.delete(db.collection('books').doc(id)));
+    await batch.commit();
+    allBooks = allBooks.filter(b => !bulkSelected.has(b.id));
+    bulkSelected.clear();
+    renderBooks();
+    showToast(cnt + ' books deleted.', 'success');
+    if (typeof logActivity === 'function') logActivity('bulk_deleted', { count: cnt });
+    updateBulkToolbar();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function bulkMove() {
+  if (!bulkSelected.size) return;
+  // Show inline folder selector
+  const overlay = document.getElementById('bulkMoveOverlay');
+  if (!overlay) return;
+  const sel = document.getElementById('bulkFolderSelect');
+  sel.innerHTML = '<option value="">Choose folder…</option>';
+  allFolders.forEach(f => {
+    const o = document.createElement('option');
+    o.value = f; o.textContent = f; sel.appendChild(o);
+  });
+  overlay.style.display = 'flex';
+}
+
+async function confirmBulkMove() {
+  const sel = document.getElementById('bulkFolderSelect');
+  const folder = sel?.value;
+  if (!folder) { showToast('Choose a folder.', 'error'); return; }
+  const cnt = bulkSelected.size;
+  try {
+    const batch = db.batch();
+    bulkSelected.forEach(id => batch.update(db.collection('books').doc(id), { category: folder }));
+    await batch.commit();
+    allBooks.forEach(b => { if (bulkSelected.has(b.id)) b.category = folder; });
+    bulkSelected.clear();
+    closeBulkMove();
+    renderBooks();
+    showToast(cnt + ' books moved to "' + folder + '"', 'success');
+    updateBulkToolbar();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+function closeBulkMove() {
+  const o = document.getElementById('bulkMoveOverlay');
+  if (o) o.style.display = 'none';
 }

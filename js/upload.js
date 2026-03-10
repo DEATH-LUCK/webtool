@@ -188,3 +188,118 @@ function formatSize(b) {
   return (b/1048576).toFixed(1) + ' MB';
 }
 function capitalizeWords(s) { return s.replace(/\b\w/g, c => c.toUpperCase()); }
+
+// ════════════════════════════════════════════════
+// BULK UPLOAD
+// ════════════════════════════════════════════════
+let bulkFiles = [];
+
+function openBulkUpload() {
+  if (currentRole !== 'admin') { showToast('Admins only.', 'error'); return; }
+  bulkFiles = [];
+  document.getElementById('bulkModal').classList.add('open');
+  document.getElementById('bulkFileInput').value = '';
+  document.getElementById('bulkFileList').innerHTML = '';
+  document.getElementById('bulkProgressWrap').style.display = 'none';
+  loadFoldersIntoBulkSelect();
+}
+function closeBulkModal() {
+  document.getElementById('bulkModal').classList.remove('open');
+  bulkFiles = [];
+}
+
+async function loadFoldersIntoBulkSelect() {
+  const sel = document.getElementById('bulkFolder');
+  sel.innerHTML = '';
+  const defaults = ['General','Fiction','Non-Fiction','Science','History','Technology','Education','Religion'];
+  defaults.forEach(f => {
+    const o = document.createElement('option'); o.value = f; o.textContent = '📁 ' + f; sel.appendChild(o);
+  });
+  try {
+    const snap = await db.collection('folders').get();
+    snap.docs.forEach(doc => {
+      if (!defaults.includes(doc.id)) {
+        const o = document.createElement('option'); o.value = doc.id; o.textContent = '📁 ' + doc.id; sel.appendChild(o);
+      }
+    });
+  } catch(e) {}
+}
+
+function handleBulkFileSelect(e) {
+  const files = Array.from(e.target.files);
+  bulkFiles = files.filter(f => f.name.match(/\.(pdf|epub|txt|doc|docx)$/i) && f.size <= 50*1024*1024);
+  const rejected = files.length - bulkFiles.length;
+  renderBulkFileList();
+  if (rejected) showToast(rejected + ' file(s) rejected (unsupported or >50MB)', 'error');
+}
+
+function renderBulkFileList() {
+  const el = document.getElementById('bulkFileList');
+  el.innerHTML = '';
+  if (!bulkFiles.length) { el.innerHTML = '<p class="muted" style="font-size:.8rem">No files selected.</p>'; return; }
+  bulkFiles.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'bulk-file-row';
+    row.innerHTML =
+      '<span class="bulk-file-icon">' + _getIcon(f.name.split('.').pop().toLowerCase()) + '</span>' +
+      '<div class="bulk-file-info">' +
+        '<input type="text" class="bulk-title-input" value="' + escapeHtml(_cleanName(f.name)) + '" placeholder="Title">' +
+        '<span class="bulk-file-size">' + formatSize(f.size) + '</span>' +
+      '</div>' +
+      '<button class="btn btn-sm btn-ghost bulk-remove-btn" onclick="removeBulkFile(' + i + ')">✕</button>';
+    el.appendChild(row);
+  });
+  document.getElementById('bulkSubmitBtn').textContent = 'Upload ' + bulkFiles.length + ' File' + (bulkFiles.length !== 1 ? 's' : '');
+}
+
+function removeBulkFile(i) {
+  bulkFiles.splice(i, 1);
+  renderBulkFileList();
+}
+
+async function startBulkUpload() {
+  if (!bulkFiles.length) { showToast('Select files first.', 'error'); return; }
+  const folder  = document.getElementById('bulkFolder').value;
+  const titles  = Array.from(document.querySelectorAll('.bulk-title-input')).map(i => i.value.trim());
+  const progWrap = document.getElementById('bulkProgressWrap');
+  const progBar  = document.getElementById('bulkProgressBar');
+  const progText = document.getElementById('bulkProgressText');
+  const btn      = document.getElementById('bulkSubmitBtn');
+
+  btn.disabled = true;
+  progWrap.style.display = 'block';
+
+  let done = 0;
+  const total = bulkFiles.length;
+  const errors = [];
+
+  for (let i = 0; i < total; i++) {
+    const file = bulkFiles[i];
+    const title = titles[i] || _cleanName(file.name);
+    progText.textContent = 'Uploading ' + (i+1) + ' / ' + total + ': ' + title;
+    progBar.style.width = Math.round((i / total) * 100) + '%';
+    try {
+      const url = await uploadToCloudinary(file, 'books', () => {});
+      await db.collection('books').add({
+        title, author: null, category: folder,
+        fileType: file.name.split('.').pop().toLowerCase(),
+        fileSize: file.size, downloadUrl: url,
+        uploadedBy: currentUser.uid,
+        uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        coverUrl: null,
+      });
+      if (typeof logActivity === 'function') logActivity('book_uploaded', { title });
+      done++;
+    } catch(e) { errors.push(title + ': ' + e.message); }
+  }
+
+  progBar.style.width = '100%';
+  progText.textContent = done + ' uploaded' + (errors.length ? ', ' + errors.length + ' failed' : '');
+  if (errors.length) console.warn('Bulk upload errors:', errors);
+  showToast(done + ' of ' + total + ' books uploaded!', done === total ? 'success' : 'error');
+  await loadBooks();
+  setTimeout(closeBulkModal, 1500);
+}
+
+function _getIcon(t) { return { pdf:'📕', epub:'📗', txt:'📄', doc:'📝', docx:'📝' }[t] || '📁'; }
+function _cleanName(n) { return n.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
