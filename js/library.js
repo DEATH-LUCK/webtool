@@ -12,10 +12,8 @@ async function loadBooks() {
   try {
     const fSnap = await db.collection('folders').get();
     allFolders = fSnap.docs.map(d => d.id);
-
     const bSnap = await db.collection('books').orderBy('uploadedAt', 'desc').get();
     allBooks = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-
     renderBooks();
   } catch(e) {
     console.error('loadBooks error:', e);
@@ -31,16 +29,14 @@ function renderBooks() {
 
   gridEl.innerHTML = '';
   listEl.innerHTML = '';
-
   renderFolderChips();
 
-  let filtered = allBooks.filter(book => {
+  const filtered = allBooks.filter(book => {
     const matchSearch = !search ||
       book.title?.toLowerCase().includes(search) ||
       book.author?.toLowerCase().includes(search);
     const matchFilter =
-      currentFilter === 'all' ||
-      currentFilter === 'folders' ||
+      currentFilter === 'all' || currentFilter === 'folders' ||
       (currentFilter === 'pdf'   && book.fileType === 'pdf') ||
       (currentFilter === 'epub'  && book.fileType === 'epub') ||
       (currentFilter === 'other' && !['pdf','epub'].includes(book.fileType));
@@ -59,7 +55,6 @@ function renderBooks() {
   }
 
   emptyEl.style.display = 'none';
-
   if (currentView === 'grid') {
     gridEl.style.display = 'grid';
     listEl.style.display = 'none';
@@ -69,7 +64,6 @@ function renderBooks() {
     listEl.style.display = 'block';
     filtered.forEach((book, i) => listEl.appendChild(createListItem(book, i)));
   }
-
   updateStats();
 }
 
@@ -77,35 +71,29 @@ function renderBooks() {
 function renderFolderChips() {
   const bar = document.getElementById('folderChipsBar');
   if (!bar) return;
-
   const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
   allFolders.forEach(f => bookFolders.add(f));
   const folders = ['all', ...bookFolders];
-
   bar.style.display = currentFilter === 'folders' ? 'flex' : 'none';
   bar.innerHTML = '';
-
   folders.forEach(folder => {
     const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
     const chip = document.createElement('button');
     chip.className = 'folder-chip' + (currentFolder === folder ? ' active' : '');
     chip.innerHTML = (folder === 'all' ? '📚 All' : '📁 ' + escapeHtml(folder)) +
       ' <span class="chip-count">' + count + '</span>';
-    chip.onclick = () => {
-      currentFolder = folder;
-      renderBooks();
-    };
+    chip.onclick = () => { currentFolder = folder; renderBooks(); };
     bar.appendChild(chip);
   });
 }
 
-// ── Grid Card ─────────────────────────────────────────────────
+// ── Grid Card — fully DOM-built to avoid innerHTML+= wiping nodes ─
 function createGridCard(book, index) {
-  const div = document.createElement('div');
-  div.className = 'book-card';
-  div.style.animationDelay = (index * 0.04) + 's';
+  const card = document.createElement('div');
+  card.className = 'book-card';
+  card.style.animationDelay = (index * 0.04) + 's';
 
-  // Build cover safely without inline onerror string injection
+  // Cover
   const coverDiv = document.createElement('div');
   coverDiv.className = 'card-cover';
   coverDiv.style.cursor = 'pointer';
@@ -113,89 +101,145 @@ function createGridCard(book, index) {
 
   if (book.coverUrl) {
     const img = document.createElement('img');
-    img.src = book.coverUrl;
-    img.alt = 'cover';
+    img.src     = book.coverUrl;
+    img.alt     = 'cover';
     img.loading = 'lazy';
-    img.onerror = function() {
-      coverDiv.innerHTML = '<div class="cover-placeholder"><span class="cover-icon">' +
-        getFileIcon(book.fileType) + '</span><span class="cover-ext">' +
-        (book.fileType || 'FILE').toUpperCase() + '</span></div>';
+    img.onerror = () => {
+      coverDiv.innerHTML =
+        '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) +
+        '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
     };
     coverDiv.appendChild(img);
   } else {
-    coverDiv.innerHTML = '<div class="cover-placeholder"><span class="cover-icon">' +
-      getFileIcon(book.fileType) + '</span><span class="cover-ext">' +
-      (book.fileType || 'FILE').toUpperCase() + '</span></div>';
+    coverDiv.innerHTML =
+      '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) +
+      '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
   }
 
-  const adminHtml = currentRole === 'admin'
-    ? '<button class="btn-icon btn-danger" title="Delete" data-bookid="' + escapeHtml(book.id) + '" data-title="' + escapeHtml(book.title) + '">🗑</button>'
-    : '';
+  // Body
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'card-body';
+  bodyDiv.style.cursor = 'pointer';
+  bodyDiv.onclick = () => openBook(book.id);
 
-  div.appendChild(coverDiv);
-  div.innerHTML +=
-    '<div class="card-body" onclick="openBook(\'' + escapeHtml(book.id) + '\')">' +
-      '<div class="card-title">' + escapeHtml(book.title) + '</div>' +
-      '<div class="card-meta">' + escapeHtml(book.author ? book.author : (book.category || '')) + '</div>' +
-    '</div>' +
-    '<div class="card-actions">' +
-      '<button class="btn btn-primary btn-sm" onclick="openBook(\'' + escapeHtml(book.id) + '\')">Read</button>' +
-      '<a href="' + escapeHtml(book.downloadUrl) + '" target="_blank" rel="noopener" class="btn btn-ghost btn-sm" title="Download">⬇</a>' +
-      adminHtml +
-    '</div>';
+  const titleEl = document.createElement('div');
+  titleEl.className   = 'card-title';
+  titleEl.textContent = book.title || 'Untitled';
 
-  // Attach delete handler safely
-  const delBtn = div.querySelector('.btn-icon.btn-danger');
-  if (delBtn) {
-    delBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      confirmDelete(e, book.id, book.title);
-    });
+  const metaEl = document.createElement('div');
+  metaEl.className   = 'card-meta';
+  metaEl.textContent = book.author || book.category || '';
+
+  bodyDiv.appendChild(titleEl);
+  bodyDiv.appendChild(metaEl);
+
+  // Actions
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'card-actions';
+
+  const readBtn = document.createElement('button');
+  readBtn.className   = 'btn btn-primary btn-sm';
+  readBtn.textContent = 'Read';
+  readBtn.onclick     = () => openBook(book.id);
+
+  const dlLink = document.createElement('a');
+  dlLink.className  = 'btn btn-ghost btn-sm';
+  dlLink.href       = book.downloadUrl;
+  dlLink.target     = '_blank';
+  dlLink.rel        = 'noopener';
+  dlLink.title      = 'Download';
+  dlLink.textContent = '⬇';
+
+  actionsDiv.appendChild(readBtn);
+  actionsDiv.appendChild(dlLink);
+
+  if (currentRole === 'admin') {
+    const delBtn = document.createElement('button');
+    delBtn.className   = 'btn-icon btn-danger';
+    delBtn.title       = 'Delete';
+    delBtn.textContent = '🗑';
+    delBtn.onclick = (e) => { e.stopPropagation(); confirmDelete(e, book.id, book.title); };
+    actionsDiv.appendChild(delBtn);
   }
 
-  return div;
+  card.appendChild(coverDiv);
+  card.appendChild(bodyDiv);
+  card.appendChild(actionsDiv);
+  return card;
 }
 
 // ── List Item ─────────────────────────────────────────────────
 function createListItem(book, index) {
-  const div = document.createElement('div');
-  div.className = 'book-list-item';
-  div.style.animationDelay = (index * 0.03) + 's';
+  const item = document.createElement('div');
+  item.className = 'book-list-item';
+  item.style.animationDelay = (index * 0.03) + 's';
 
-  const coverHtml = book.coverUrl
-    ? '<img src="' + escapeHtml(book.coverUrl) + '" alt="cover" onerror="this.outerHTML=\'' + getFileIcon(book.fileType) + '\'">'
-    : getFileIcon(book.fileType);
-
-  const date = book.uploadedAt?.toDate
-    ? book.uploadedAt.toDate().toLocaleDateString('en-US', { day:'2-digit', month:'short', year:'numeric' })
-    : '';
-
-  div.innerHTML =
-    '<div class="list-cover" onclick="openBook(\'' + escapeHtml(book.id) + '\')">' + coverHtml + '</div>' +
-    '<div class="list-body" onclick="openBook(\'' + escapeHtml(book.id) + '\')">' +
-      '<div class="list-title">' + escapeHtml(book.title) + '</div>' +
-      '<div class="list-meta">' +
-        escapeHtml(book.author ? book.author + ' · ' : '') +
-        escapeHtml(book.category || '') + (date ? ' · ' + date : '') +
-      '</div>' +
-    '</div>' +
-    '<div class="list-actions">' +
-      '<button class="btn btn-primary btn-sm" onclick="openBook(\'' + escapeHtml(book.id) + '\')">📖 Read</button>' +
-      '<a href="' + escapeHtml(book.downloadUrl) + '" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">⬇</a>' +
-      (currentRole === 'admin'
-        ? '<button class="btn btn-danger btn-sm" data-bookid="' + escapeHtml(book.id) + '" data-title="' + escapeHtml(book.title) + '">🗑 Delete</button>'
-        : '') +
-    '</div>';
-
-  const delBtn = div.querySelector('.btn-danger[data-bookid]');
-  if (delBtn) {
-    delBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      confirmDelete(e, book.id, book.title);
-    });
+  // Cover thumb
+  const coverDiv = document.createElement('div');
+  coverDiv.className = 'list-cover';
+  coverDiv.style.cursor = 'pointer';
+  coverDiv.onclick = () => openBook(book.id);
+  if (book.coverUrl) {
+    const img = document.createElement('img');
+    img.src = book.coverUrl;
+    img.alt = 'cover';
+    img.onerror = () => { coverDiv.textContent = getFileIcon(book.fileType); };
+    coverDiv.appendChild(img);
+  } else {
+    coverDiv.textContent = getFileIcon(book.fileType);
   }
 
-  return div;
+  // Body text
+  const bodyDiv = document.createElement('div');
+  bodyDiv.className = 'list-body';
+  bodyDiv.style.cursor = 'pointer';
+  bodyDiv.onclick = () => openBook(book.id);
+
+  const titleEl = document.createElement('div');
+  titleEl.className   = 'list-title';
+  titleEl.textContent = book.title || 'Untitled';
+
+  const date = book.uploadedAt?.toDate
+    ? book.uploadedAt.toDate().toLocaleDateString('en-US', {day:'2-digit', month:'short', year:'numeric'})
+    : '';
+  const metaEl = document.createElement('div');
+  metaEl.className   = 'list-meta';
+  metaEl.textContent = [book.author, book.category, date].filter(Boolean).join(' · ');
+
+  bodyDiv.appendChild(titleEl);
+  bodyDiv.appendChild(metaEl);
+
+  // Actions
+  const actionsDiv = document.createElement('div');
+  actionsDiv.className = 'list-actions';
+
+  const readBtn = document.createElement('button');
+  readBtn.className   = 'btn btn-primary btn-sm';
+  readBtn.textContent = '📖 Read';
+  readBtn.onclick     = () => openBook(book.id);
+
+  const dlLink = document.createElement('a');
+  dlLink.className   = 'btn btn-ghost btn-sm';
+  dlLink.href        = book.downloadUrl;
+  dlLink.target      = '_blank';
+  dlLink.rel         = 'noopener';
+  dlLink.textContent = '⬇';
+
+  actionsDiv.appendChild(readBtn);
+  actionsDiv.appendChild(dlLink);
+
+  if (currentRole === 'admin') {
+    const delBtn = document.createElement('button');
+    delBtn.className   = 'btn btn-danger btn-sm';
+    delBtn.textContent = '🗑 Delete';
+    delBtn.onclick = (e) => { e.stopPropagation(); confirmDelete(e, book.id, book.title); };
+    actionsDiv.appendChild(delBtn);
+  }
+
+  item.appendChild(coverDiv);
+  item.appendChild(bodyDiv);
+  item.appendChild(actionsDiv);
+  return item;
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -213,7 +257,6 @@ function setView(view, btn) {
   if (btn) btn.classList.add('active');
   renderBooks();
 }
-
 function setFilter(filter, btn) {
   currentFilter = filter;
   if (filter !== 'folders') currentFolder = 'all';
@@ -233,7 +276,7 @@ let deleteTargetId = null;
 function confirmDelete(e, bookId, title) {
   e.stopPropagation();
   deleteTargetId = bookId;
-  document.getElementById('deleteBookTitle').textContent = '"' + title + '"';
+  document.getElementById('deleteBookTitle').textContent = '"' + (title || 'this book') + '"';
   document.getElementById('deleteModal').classList.add('open');
 }
 function closeDeleteModal() {
@@ -269,5 +312,10 @@ function getFileIcon(type) {
 }
 function escapeHtml(str) {
   if (!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
