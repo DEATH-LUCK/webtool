@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>My Library</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════════════════════════ -->
+<div id="loginPage">
+  <div class="login-box">
+    <div class="login-logo">📚 My Library</div>
+    <div class="login-subtitle">Your personal digital collection</div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') handleSignIn()">
+    </div>
+    <div class="auth-buttons">
+      <button class="btn btn-primary" onclick="handleSignIn()">Sign In</button>
+      <button class="btn btn-ghost" onclick="handleSignUp()">Create Account</button>
+    </div>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     APP PAGE
+══════════════════════════════════════════════════════════ -->
+<div id="appPage">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-inner" style="position:relative;">
+      <div class="nav-logo" onclick="closeReader()">📚 My Library</div>
+      <div class="nav-right" id="desktopNav">
+        <span class="nav-email" id="navEmail"></span>
+        <span class="badge-admin" id="navAdminBadge">ADMIN</span>
+        <button class="btn btn-ghost btn-sm" id="navUploadBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
+        <button class="btn btn-ghost btn-sm" id="navAdminBtn"  style="display:none" onclick="openAdminPanel()">⚙ Admin</button>
+        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()">🌙</button>
+        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
+      </div>
+      <!-- Hamburger -->
+      <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
+      <!-- Mobile Dropdown -->
+      <div class="mobile-menu" id="mobileMenu">
+        <div class="mobile-menu-email" id="mobileEmail"></div>
+        <div id="mobileAdminBadge" style="display:none; padding:4px 12px 8px;"><span class="badge-admin" style="display:inline-flex;">ADMIN</span></div>
+        <button class="menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
+        <button class="menu-item" id="mobileAdminBtn"  style="display:none" onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
+        <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
+        <button class="menu-item danger" onclick="handleLogout()">Sign Out</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Library View -->
+  <div id="libraryView">
+    <div class="container">
+      <!-- Header -->
+      <div class="library-header">
+        <h2 class="library-title">The <span>Collection</span></h2>
+        <p class="library-subtitle">Browse and read your saved books & documents</p>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-bar">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search titles..." oninput="renderBooks()">
+        </div>
+        <div class="view-btns">
+          <button class="view-btn active" onclick="setView('grid', this)" title="Grid view">⊞</button>
+          <button class="view-btn" onclick="setView('list', this)" title="List view">≡</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-bar">
+        <div class="stat-item"><span class="stat-num" id="statTotal">0</span><span class="stat-label">Books</span></div>
+        <div class="stat-item"><span class="stat-num" id="statPDF">0</span><span class="stat-label">PDFs</span></div>
+        <div class="stat-item"><span class="stat-num" id="statEPUB">0</span><span class="stat-label">EPUBs</span></div>
+        <div class="stat-item"><span class="stat-num" id="statOther">0</span><span class="stat-label">Other</span></div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
+        <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
+        <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
+        <button class="filter-tab" onclick="setFilter('folders', this)">📁 Folders</button>
+      </div>
+
+      <!-- Folder Chips (shown when Folders tab active) -->
+      <div class="folder-chips-bar" id="folderChipsBar"></div>
+
+      <!-- Books -->
+      <div id="booksGrid" class="books-grid"></div>
+      <div id="booksListView" class="books-list" style="display:none;"></div>
+
+      <!-- Empty State -->
+      <div id="emptyState">
+        <div class="empty-icon">📭</div>
+        <div class="empty-title">No books found</div>
+        <div class="empty-sub" id="emptyMsg">Upload your first book to get started.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reader View -->
+  <div id="readerView" style="display:none;">
+    <!-- Desktop Toolbar -->
+    <div class="reader-toolbar">
+      <button class="btn btn-ghost btn-sm" onclick="closeReader()">← Back</button>
+      <div class="reader-book-title" id="readerBookTitle"></div>
+      <div class="reader-controls">
+        <button class="btn btn-ghost btn-sm" id="prevDesktop" onclick="changePage(-1)" disabled>◀</button>
+        <span class="page-info" id="pageInfoDesktop">1 / 1</span>
+        <button class="btn btn-ghost btn-sm" id="nextDesktop" onclick="changePage(1)" disabled>▶</button>
+        <button class="btn btn-ghost btn-sm" onclick="changeZoom(-0.15)">−</button>
+        <button class="btn btn-ghost btn-sm" onclick="changeZoom(0.15)">+</button>
+        <a class="btn btn-ghost btn-sm reader-download-btn" href="#" target="_blank">⬇ Download</a>
+      </div>
+    </div>
+
+    <!-- Reader Body -->
+    <div class="reader-body" id="readerBody">
+      <div class="reader-loading" id="readerLoading">
+        <div class="spinner"></div><p>Loading...</p>
+      </div>
+      <canvas id="pdfCanvas"></canvas>
+      <div id="epubContainer"></div>
+    </div>
+
+    <!-- Mobile Bottom Bar -->
+    <div class="mobile-reader-bar">
+      <button class="mob-btn" onclick="closeReader()">✕</button>
+      <button class="mob-btn mob-btn-nav" id="prevMobile" onclick="changePage(-1)" disabled>◀ Prev</button>
+      <span class="mob-page" id="pageInfoMobile">1/1</span>
+      <button class="mob-btn mob-btn-nav" id="nextMobile" onclick="changePage(1)" disabled>Next ▶</button>
+      <a class="mob-btn reader-download-btn" href="#" target="_blank">⬇</a>
+    </div>
+  </div>
+
+</div><!-- /#appPage -->
+
+<!-- ══════════════════════════════════════════════════════════
+     UPLOAD MODAL
+══════════════════════════════════════════════════════════ -->
+<div class="upload-modal-overlay" id="uploadModal">
+  <div class="upload-modal">
+    <div class="upload-modal-header">
+      <div class="upload-modal-title">Upload Book</div>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <!-- Dropzone -->
+    <div class="dropzone" id="dropzone"
+      ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
+      onclick="document.getElementById('fileInput').click()">
+      <div class="dropzone-icon">📄</div>
+      <div class="dropzone-text">Drop file here or click to browse</div>
+      <div class="dropzone-sub">Supports PDF, EPUB, TXT, DOC, DOCX (max 50MB)</div>
+    </div>
+    <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
+    <div id="fileChosen" class="file-chosen" style="display:none;margin-bottom:12px;"></div>
+    <!-- Fields -->
+    <div class="form-group">
+      <label class="form-label">Title *</label>
+      <input type="text" id="bookTitle" placeholder="Book title">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Author</label>
+      <input type="text" id="bookAuthor" placeholder="Author name (optional)">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Folder</label>
+      <select id="bookFolder" onchange="onFolderChange(this)"></select>
+      <input type="text" id="uploadNewFolderInput" placeholder="New folder name..." style="display:none; margin-top:8px;">
+    </div>
+    <!-- Progress -->
+    <div id="uploadProgress" style="display:none;" class="progress-wrap">
+      <div class="progress-info">
+        <span id="progressText">Uploading...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
+    </div>
+    <div style="display:flex; gap:10px; margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeUploadModal()">Cancel</button>
+      <button class="btn btn-primary" id="uploadSubmitBtn" onclick="uploadBook()" style="flex:1;">Upload</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     DELETE MODAL
+══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <div class="modal-title">Delete Book</div>
+    <div class="modal-body">Are you sure you want to delete <strong id="deleteBookTitle"></strong>? This cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger" onclick="executeDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     ADMIN PANEL
+══════════════════════════════════════════════════════════ -->
+<div class="admin-overlay" id="adminPanel">
+  <div class="admin-panel">
+    <div class="admin-header">
+      <h2>⚙ Admin Panel</h2>
+      <button class="modal-close" onclick="closeAdminPanel()">✕</button>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab-btn active" onclick="showAdminTab('users', this)" data-tab="users">👥 Users</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('folders', this)" data-tab="folders">📁 Folders</button>
+    </div>
+    <div class="admin-content">
+      <!-- Users Pane -->
+      <div id="adminPane_users">
+        <div class="admin-section">
+          <h4>Add New Admin</h4>
+          <div class="add-row">
+            <input type="email" id="adminEmailInput" placeholder="user@email.com">
+            <button class="btn btn-primary btn-sm" onclick="addAdmin()">Add</button>
+          </div>
+        </div>
+        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Users</h4>
+        <div id="usersList"></div>
+      </div>
+      <!-- Folders Pane -->
+      <div id="adminPane_folders" style="display:none;">
+        <div class="admin-section">
+          <h4>Create New Folder</h4>
+          <div class="add-row">
+            <input type="text" id="adminNewFolderInput" placeholder="Folder name...">
+            <button class="btn btn-primary btn-sm" onclick="createFolder()">Create</button>
+          </div>
+        </div>
+        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Folders</h4>
+        <div id="foldersList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ── Scripts ────────────────────────────────────────────────── -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/library.js"></script>
+<script src="js/upload.js"></script>
+<script src="js/reader.js"></script>
+<script src="js/admin.js"></script>
+
+
+</body>
+</html>
