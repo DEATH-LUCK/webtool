@@ -18,18 +18,27 @@ function closeUploadModal() {
 }
 function resetUploadForm() {
   selectedFile = null;
-  document.getElementById('bookTitle').value   = '';
-  document.getElementById('bookAuthor').value  = '';
-  document.getElementById('bookFolder').value  = 'General';
-  // Use upload-specific IDs to avoid collision with admin panel inputs
+
+  // FIX: clear fileInput so same file can be re-selected after cancel
+  const fi = document.getElementById('fileInput');
+  if (fi) fi.value = '';
+
+  document.getElementById('bookTitle').value  = '';
+  document.getElementById('bookAuthor').value = '';
+  document.getElementById('bookFolder').value = 'General';
+
   const nfi = document.getElementById('uploadNewFolderInput');
   if (nfi) { nfi.style.display = 'none'; nfi.value = ''; }
+
   const fc = document.getElementById('fileChosen');
-  if (fc) fc.style.display = 'none';
+  if (fc) { fc.style.display = 'none'; fc.textContent = ''; }
+
   const up = document.getElementById('uploadProgress');
   if (up) up.style.display = 'none';
+
   const pb = document.getElementById('progressBar');
   if (pb) pb.style.width = '0%';
+
   const btn = document.getElementById('uploadSubmitBtn');
   if (btn) { btn.disabled = false; btn.textContent = 'Upload'; }
 }
@@ -45,27 +54,23 @@ async function loadFoldersIntoSelect() {
     snap.docs.forEach(doc => {
       if (!defaults.includes(doc.id)) {
         const opt = document.createElement('option');
-        opt.value       = doc.id;
-        opt.textContent = '📁 ' + doc.id;
+        opt.value = doc.id; opt.textContent = '📁 ' + doc.id;
         select.appendChild(opt);
       }
     });
-
     const bSnap = await db.collection('books').get();
     const bookFolders = [...new Set(bSnap.docs.map(d => d.data().category).filter(Boolean))];
     bookFolders.forEach(f => {
       if (!defaults.includes(f) && !Array.from(select.options).some(o => o.value === f)) {
         const opt = document.createElement('option');
-        opt.value       = f;
-        opt.textContent = '📁 ' + f;
+        opt.value = f; opt.textContent = '📁 ' + f;
         select.appendChild(opt);
       }
     });
   } catch(e) {}
 
   const newOpt = document.createElement('option');
-  newOpt.value       = '__new__';
-  newOpt.textContent = '➕ New Folder...';
+  newOpt.value = '__new__'; newOpt.textContent = '➕ New Folder...';
   select.appendChild(newOpt);
 }
 
@@ -91,12 +96,11 @@ function processFile(file) {
   if (file.size > 50 * 1024 * 1024) { showToast('File too large. Max 50MB.', 'error'); return; }
   selectedFile = file;
   const fc = document.getElementById('fileChosen');
-  fc.textContent = '✅ ' + file.name + ' (' + formatSize(file.size) + ')';
+  fc.textContent  = '✅ ' + file.name + ' (' + formatSize(file.size) + ')';
   fc.style.display = 'block';
-  if (!document.getElementById('bookTitle').value) {
-    document.getElementById('bookTitle').value = capitalizeWords(
-      file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ')
-    );
+  const titleEl = document.getElementById('bookTitle');
+  if (!titleEl.value) {
+    titleEl.value = capitalizeWords(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
   }
 }
 
@@ -106,28 +110,26 @@ async function uploadBook() {
   const title = document.getElementById('bookTitle').value.trim();
   if (!title) { showToast('Please enter a title.', 'error'); return; }
 
-  const author      = document.getElementById('bookAuthor').value.trim();
+  const author       = document.getElementById('bookAuthor').value.trim();
   const folderSelect = document.getElementById('bookFolder').value;
   const newFolderVal = (document.getElementById('uploadNewFolderInput')?.value || '').trim();
-  const category    = folderSelect === '__new__' ? (newFolderVal || 'General') : folderSelect;
-  const fileType    = selectedFile.name.split('.').pop().toLowerCase();
-  const btn         = document.getElementById('uploadSubmitBtn');
+  const category     = folderSelect === '__new__' ? (newFolderVal || 'General') : folderSelect;
+  const fileType     = selectedFile.name.split('.').pop().toLowerCase();
+  const btn          = document.getElementById('uploadSubmitBtn');
 
-  btn.disabled    = true;
-  btn.textContent = 'Uploading...';
-  document.getElementById('uploadProgress').style.display  = 'block';
-  document.getElementById('progressText').textContent      = 'Uploading file...';
+  btn.disabled = true; btn.textContent = 'Uploading...';
+  document.getElementById('uploadProgress').style.display = 'block';
+  document.getElementById('progressText').textContent     = 'Uploading file...';
 
   try {
     const fileUrl = await uploadToCloudinary(selectedFile, 'books', (pct) => {
-      document.getElementById('progressBar').style.width        = pct + '%';
-      document.getElementById('progressPercent').textContent    = pct + '%';
+      document.getElementById('progressBar').style.width     = pct + '%';
+      document.getElementById('progressPercent').textContent = pct + '%';
     });
 
     document.getElementById('progressText').textContent = 'Saving to database...';
     document.getElementById('progressBar').style.width  = '92%';
 
-    // Save new folder if needed
     if (folderSelect === '__new__' && newFolderVal) {
       await db.collection('folders').doc(newFolderVal).set({
         name: newFolderVal,
@@ -135,19 +137,17 @@ async function uploadBook() {
       }).catch(() => {});
     }
 
-    const bookData = {
+    await db.collection('books').add({
       title,
-      author: author || null,
+      author:      author || null,
       category,
       fileType,
-      fileSize: selectedFile.size,
+      fileSize:    selectedFile.size,
       downloadUrl: fileUrl,
-      uploadedBy: currentUser.uid,
-      uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      coverUrl: null,
-    };
-
-    await db.collection('books').add(bookData);
+      uploadedBy:  currentUser.uid,
+      uploadedAt:  firebase.firestore.FieldValue.serverTimestamp(),
+      coverUrl:    null,
+    });
 
     document.getElementById('progressBar').style.width = '100%';
     showToast('"' + title + '" uploaded successfully!', 'success');
@@ -155,8 +155,7 @@ async function uploadBook() {
     await loadBooks();
   } catch(err) {
     showToast('Upload failed: ' + err.message, 'error');
-    btn.disabled    = false;
-    btn.textContent = 'Upload';
+    btn.disabled = false; btn.textContent = 'Upload';
   }
 }
 

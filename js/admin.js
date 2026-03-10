@@ -1,7 +1,7 @@
 // ============================================================
 // ADMIN.JS — Admin Panel
 // ============================================================
-// Note: escapeHtml is defined in library.js — no duplicate needed
+// escapeHtml is defined in library.js
 
 function openAdminPanel() {
   if (currentRole !== 'admin') return;
@@ -12,6 +12,7 @@ function closeAdminPanel() {
   document.getElementById('adminPanel').classList.remove('open');
 }
 
+// Called from HTML onclick — receives the button element
 function showAdminTab(tab, evtTarget) {
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.admin-tab-pane').forEach(p => p.style.display = 'none');
@@ -21,13 +22,13 @@ function showAdminTab(tab, evtTarget) {
   if (tab === 'folders') loadFoldersPane();
 }
 
-// Internal helper for calling without a click event (e.g. on open)
+// Internal call (no button target needed)
 function _showAdminTab(tab) {
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.admin-tab-pane').forEach(p => p.style.display = 'none');
   document.getElementById('adminPane_' + tab).style.display = 'block';
-  const activeBtn = document.querySelector('.admin-tab-btn[data-tab="' + tab + '"]');
-  if (activeBtn) activeBtn.classList.add('active');
+  const btn = document.querySelector('.admin-tab-btn[data-tab="' + tab + '"]');
+  if (btn) btn.classList.add('active');
   if (tab === 'users')   loadUsersPane();
   if (tab === 'folders') loadFoldersPane();
 }
@@ -41,24 +42,34 @@ async function loadUsersPane() {
     if (snap.empty) { el.innerHTML = '<p class="muted">No users found.</p>'; return; }
     el.innerHTML = '';
     snap.docs.forEach(doc => {
-      const data = doc.data();
+      const data    = doc.data();
       const isAdmin = data.role === 'admin';
       const isSelf  = doc.id === currentUser.uid || doc.id === currentUser.email;
+
       const row = document.createElement('div');
       row.className = 'user-row';
-      row.innerHTML =
-        '<div class="user-info">' +
-          '<div class="user-email">' + escapeHtml(doc.id) + '</div>' +
-          '<div class="user-badge ' + (isAdmin ? 'badge-admin' : 'badge-user') + '">' +
-            (isAdmin ? '👑 Admin' : '👤 User') +
-          '</div>' +
-        '</div>' +
-        '<div>' +
-          (!isSelf
-            ? '<button class="btn btn-ghost btn-sm" onclick="toggleRole(\'' + doc.id + '\',' + isAdmin + ')">' +
-              (isAdmin ? '⬇ Make User' : '⬆ Make Admin') + '</button>'
-            : '<span class="muted" style="font-size:0.75rem">You</span>') +
+
+      const info = document.createElement('div');
+      info.className = 'user-info';
+      info.innerHTML =
+        '<div class="user-email">' + escapeHtml(doc.id) + '</div>' +
+        '<div class="user-badge ' + (isAdmin ? 'badge-admin' : 'badge-user') + '">' +
+          (isAdmin ? '👑 Admin' : '👤 User') +
         '</div>';
+
+      const actions = document.createElement('div');
+      if (!isSelf) {
+        const btn = document.createElement('button');
+        btn.className   = 'btn btn-ghost btn-sm';
+        btn.textContent = isAdmin ? '⬇ Make User' : '⬆ Make Admin';
+        btn.onclick     = () => toggleRole(doc.id, isAdmin);
+        actions.appendChild(btn);
+      } else {
+        actions.innerHTML = '<span class="muted" style="font-size:0.75rem">You</span>';
+      }
+
+      row.appendChild(info);
+      row.appendChild(actions);
       el.appendChild(row);
     });
   } catch(e) {
@@ -122,34 +133,71 @@ async function loadFoldersPane() {
       return;
     }
 
-    allFolderNames.forEach(folder => {
-      const books  = folderMap[folder];
-      const safeId = 'fp_' + folder.replace(/[^a-z0-9]/gi, '_');
-
-      const booksHtml = books.length === 0
-        ? '<p class="muted" style="padding:12px;font-size:0.82rem;">Empty folder</p>'
-        : books.map(b =>
-            '<div class="folder-book-row">' +
-            '<span class="folder-book-title">📄 ' + escapeHtml(b.title) + '</span>' +
-            '<select class="move-select" onchange="moveBook(\'' + b.id + '\',this.value,this)">' +
-            '<option value="">Move to...</option>' +
-            allFolderNames.filter(f => f !== folder).map(f => '<option value="' + escapeHtml(f) + '">📁 ' + escapeHtml(f) + '</option>').join('') +
-            '</select>' +
-            '</div>'
-          ).join('');
+    allFolderNames.forEach(folderName => {
+      const books  = folderMap[folderName];
+      const safeId = 'fp_' + folderName.replace(/[^a-z0-9]/gi, '_') + '_' + Math.random().toString(36).slice(2,6);
 
       const div = document.createElement('div');
       div.className = 'folder-manage-row';
-      div.innerHTML =
-        '<div class="folder-manage-header" onclick="togglePane(\'' + safeId + '\')">' +
-          '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<span class="chevron" id="chev_' + safeId + '">▶</span>' +
-            '<strong>📁 ' + escapeHtml(folder) + '</strong>' +
-            '<span class="muted" style="font-size:0.78rem;">(' + books.length + ' books)</span>' +
-          '</div>' +
-          '<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteFolder(\'' + escapeHtml(folder) + '\',' + books.length + ')">🗑 Delete</button>' +
-        '</div>' +
-        '<div class="folder-manage-body" id="' + safeId + '" style="display:none;">' + booksHtml + '</div>';
+
+      // Header
+      const header = document.createElement('div');
+      header.className = 'folder-manage-header';
+      header.onclick   = () => togglePane(safeId);
+
+      const headerLeft = document.createElement('div');
+      headerLeft.style.cssText = 'display:flex;align-items:center;gap:8px;';
+      headerLeft.innerHTML =
+        '<span class="chevron" id="chev_' + safeId + '">▶</span>' +
+        '<strong>📁 ' + escapeHtml(folderName) + '</strong>' +
+        '<span class="muted" style="font-size:0.78rem;">(' + books.length + ' books)</span>';
+
+      // FIX: use DOM event instead of inline onclick with string interpolation
+      const delBtn = document.createElement('button');
+      delBtn.className   = 'btn btn-danger btn-sm';
+      delBtn.textContent = '🗑 Delete';
+      delBtn.onclick = (e) => { e.stopPropagation(); deleteFolder(folderName, books.length); };
+
+      header.appendChild(headerLeft);
+      header.appendChild(delBtn);
+
+      // Body
+      const body = document.createElement('div');
+      body.className    = 'folder-manage-body';
+      body.id           = safeId;
+      body.style.display = 'none';
+
+      if (books.length === 0) {
+        body.innerHTML = '<p class="muted" style="padding:12px;font-size:0.82rem;">Empty folder</p>';
+      } else {
+        books.forEach(b => {
+          const bookRow = document.createElement('div');
+          bookRow.className = 'folder-book-row';
+
+          const titleSpan = document.createElement('span');
+          titleSpan.className   = 'folder-book-title';
+          titleSpan.textContent = '📄 ' + b.title;
+
+          const moveSelect = document.createElement('select');
+          moveSelect.className = 'move-select';
+          const defaultOpt = document.createElement('option');
+          defaultOpt.value = ''; defaultOpt.textContent = 'Move to...';
+          moveSelect.appendChild(defaultOpt);
+          allFolderNames.filter(f => f !== folderName).forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f; opt.textContent = '📁 ' + f;
+            moveSelect.appendChild(opt);
+          });
+          moveSelect.onchange = function() { moveBook(b.id, this.value, this); };
+
+          bookRow.appendChild(titleSpan);
+          bookRow.appendChild(moveSelect);
+          body.appendChild(bookRow);
+        });
+      }
+
+      div.appendChild(header);
+      div.appendChild(body);
       el.appendChild(div);
     });
 
@@ -169,7 +217,7 @@ function togglePane(id) {
 
 async function createFolder() {
   const input = document.getElementById('adminNewFolderInput');
-  const name = input?.value.trim();
+  const name  = input?.value.trim();
   if (!name) { showToast('Enter a folder name.', 'error'); return; }
   try {
     await db.collection('folders').doc(name).set({
@@ -200,7 +248,7 @@ async function deleteFolder(folder, count) {
   if (!confirm(msg)) return;
   try {
     if (count > 0) {
-      const snap = await db.collection('books').where('category', '==', folder).get();
+      const snap  = await db.collection('books').where('category', '==', folder).get();
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
