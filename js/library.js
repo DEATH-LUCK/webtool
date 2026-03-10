@@ -118,16 +118,10 @@ function createGridCard(book, index) {
     img.src     = book.coverUrl;
     img.alt     = 'cover';
     img.loading = 'lazy';
-    img.onerror = () => {
-      coverDiv.innerHTML =
-        '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) +
-        '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
-    };
+    img.onerror = () => { _renderGeneratedCover(coverDiv, book); };
     coverDiv.appendChild(img);
   } else {
-    coverDiv.innerHTML =
-      '<div class="cover-placeholder"><span class="cover-icon">' + getFileIcon(book.fileType) +
-      '</span><span class="cover-ext">' + (book.fileType || 'FILE').toUpperCase() + '</span></div>';
+    _renderGeneratedCover(coverDiv, book);
   }
 
   // Body
@@ -197,10 +191,10 @@ function createListItem(book, index) {
     const img = document.createElement('img');
     img.src = book.coverUrl;
     img.alt = 'cover';
-    img.onerror = () => { coverDiv.textContent = getFileIcon(book.fileType); };
+    img.onerror = () => { _renderListCover(coverDiv, book); };
     coverDiv.appendChild(img);
   } else {
-    coverDiv.textContent = getFileIcon(book.fileType);
+    _renderListCover(coverDiv, book);
   }
 
   // Body text
@@ -436,4 +430,77 @@ async function confirmBulkMove() {
 function closeBulkMove() {
   const o = document.getElementById('bulkMoveOverlay');
   if (o) o.style.display = 'none';
+}
+
+// ── Cover Helpers ────────────────────────────────────────────
+function _renderGeneratedCover(container, book) {
+  // Try to render a canvas-based cover for books with no image
+  const canvas = document.createElement('canvas');
+  canvas.width  = 120;
+  canvas.height = 168;
+  canvas.style.cssText = 'width:100%;height:100%;display:block;';
+
+  const ctx = canvas.getContext('2d');
+  const colors = {
+    pdf:  { bg1: '#1a0f02', bg2: '#0d0701', accent: '#c8902a' },
+    epub: { bg1: '#0a1a10', bg2: '#050d08', accent: '#4a8a5a' },
+    txt:  { bg1: '#0a0f1a', bg2: '#050810', accent: '#5a6aaa' },
+    doc:  { bg1: '#0a0f1a', bg2: '#050810', accent: '#4a6a9a' },
+    docx: { bg1: '#0a0f1a', bg2: '#050810', accent: '#4a6a9a' },
+  };
+  const c = colors[book.fileType] || { bg1: '#111', bg2: '#070707', accent: '#888' };
+
+  const grad = ctx.createLinearGradient(0, 0, 0, 168);
+  grad.addColorStop(0, c.bg1);
+  grad.addColorStop(1, c.bg2);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 120, 168);
+
+  // Spine
+  ctx.fillStyle = c.accent;
+  ctx.fillRect(0, 0, 3, 168);
+
+  // Type badge
+  ctx.fillStyle = c.accent + '33';
+  ctx.fillRect(0, 130, 120, 38);
+  ctx.fillStyle = c.accent;
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText((book.fileType || 'FILE').toUpperCase(), 60, 151);
+
+  // Title
+  const title = book.title || 'Untitled';
+  ctx.fillStyle = '#e8d5a3';
+  ctx.font = 'bold 11px serif';
+  ctx.textAlign = 'center';
+  // Wrap
+  const words = title.split(' ');
+  let line = '', y = 58, lines = [];
+  for (const w of words) {
+    const test = line + (line ? ' ' : '') + w;
+    if (ctx.measureText(test).width > 98 && line) { lines.push(line); line = w; }
+    else line = test;
+    if (lines.length >= 4) break;
+  }
+  if (line && lines.length < 4) lines.push(line);
+  const startY = 80 - (lines.length * 14) / 2;
+  lines.forEach((l, i) => ctx.fillText(l, 60, startY + i * 15));
+
+  // Decorative line above title
+  ctx.strokeStyle = c.accent + '88';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(14, startY - 9); ctx.lineTo(106, startY - 9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(14, startY + lines.length * 15 + 2); ctx.lineTo(106, startY + lines.length * 15 + 2); ctx.stroke();
+
+  container.innerHTML = '';
+  container.appendChild(canvas);
+}
+
+function _renderListCover(container, book) {
+  container.style.background = 'var(--ink3)';
+  container.style.display    = 'flex';
+  container.style.alignItems = 'center';
+  container.style.justifyContent = 'center';
+  container.style.fontSize   = '1.4rem';
+  container.textContent = getFileIcon(book.fileType);
 }

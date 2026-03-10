@@ -397,6 +397,12 @@
         <div style="margin-top:16px">
           <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
         </div>
+        <div class="admin-section">
+          <h4>Fix Missing Covers</h4>
+          <p class="muted" style="margin-bottom:12px;font-size:.8rem">Scan all PDF books and generate thumbnails for those missing covers.</p>
+          <button class="btn btn-ghost btn-sm" id="fixCoversBtn" onclick="generateMissingCovers()">🖼 Generate Missing Covers</button>
+          <div id="fixCoversStatus" style="margin-top:8px;font-size:.8rem;color:var(--cream3)"></div>
+        </div>
       </div>
 
     </div>

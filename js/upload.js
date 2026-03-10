@@ -127,8 +127,25 @@ async function uploadBook() {
       document.getElementById('progressPercent').textContent = pct + '%';
     });
 
+    // Generate thumbnail for PDF or EPUB
+    let coverUrl = null;
+    if (fileType === 'pdf' || fileType === 'epub') {
+      document.getElementById('progressText').textContent = 'Generating cover...';
+      document.getElementById('progressBar').style.width  = '93%';
+      let thumbFile = null;
+      if (fileType === 'pdf') {
+        thumbFile = await generatePdfThumbnail(selectedFile);
+      } else if (fileType === 'epub') {
+        thumbFile = await generateEpubCover(selectedFile);
+      }
+      if (thumbFile) {
+        document.getElementById('progressText').textContent = 'Uploading cover...';
+        coverUrl = await uploadThumbnail(thumbFile);
+      }
+    }
+
     document.getElementById('progressText').textContent = 'Saving to database...';
-    document.getElementById('progressBar').style.width  = '92%';
+    document.getElementById('progressBar').style.width  = '97%';
 
     if (folderSelect === '__new__' && newFolderVal) {
       await db.collection('folders').doc(newFolderVal).set({
@@ -146,7 +163,7 @@ async function uploadBook() {
       downloadUrl: fileUrl,
       uploadedBy:  currentUser.uid,
       uploadedAt:  firebase.firestore.FieldValue.serverTimestamp(),
-      coverUrl:    null,
+      coverUrl,
     });
 
     document.getElementById('progressBar').style.width = '100%';
@@ -156,6 +173,150 @@ async function uploadBook() {
   } catch(err) {
     showToast('Upload failed: ' + err.message, 'error');
     btn.disabled = false; btn.textContent = 'Upload';
+  }
+}
+
+// ── Thumbnail Generation ──────────────────────────────────────
+async function generatePdfThumbnail(file) {
+  try {
+    if (typeof pdfjsLib === 'undefined') return null;
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf         = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page        = await pdf.getPage(1);
+
+    // Render at 200px wide (good thumbnail size)
+    const viewport = page.getViewport({ scale: 1 });
+    const scale    = 200 / viewport.width;
+    const scaled   = page.getViewport({ scale });
+
+    const canvas  = document.createElement('canvas');
+    canvas.width  = scaled.width;
+    canvas.height = scaled.height;
+    const ctx     = canvas.getContext('2d');
+
+    await page.render({ canvasContext: ctx, viewport: scaled }).promise;
+
+    // Canvas → Blob → File
+    return await new Promise(resolve => {
+      canvas.toBlob(blob => {
+        if (!blob) { resolve(null); return; }
+        resolve(new File([blob], 'cover.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.85);
+    });
+  } catch(e) {
+    console.warn('Thumbnail generation failed:', e.message);
+    return null;
+  }
+}
+
+
+// ── EPUB Cover Extraction ─────────────────────────────────────
+async function generateEpubCover(file) {
+  try {
+    // Try to extract cover image from EPUB (which is a ZIP)
+    if (typeof JSZip === 'undefined') return await _makeTextCover(file.name);
+
+    const zip  = await JSZip.loadAsync(file);
+    const files = Object.keys(zip.files);
+
+    // Common cover image paths inside EPUBs
+    const coverPatterns = [
+      /cover\.(jpg|jpeg|png|webp)/i,
+      /images\/cover/i,
+      /OEBPS\/Images\/cover/i,
+      /EPUB\/images\/cover/i,
+    ];
+
+    let coverEntry = null;
+    for (const pattern of coverPatterns) {
+      coverEntry = files.find(f => pattern.test(f));
+      if (coverEntry) break;
+    }
+
+    // Fallback: find any image in the zip
+    if (!coverEntry) {
+      coverEntry = files.find(f => /\.(jpg|jpeg|png)$/i.test(f) && !/__MACOSX/.test(f));
+    }
+
+    if (coverEntry) {
+      const blob = await zip.files[coverEntry].async('blob');
+      return new File([blob], 'cover.jpg', { type: 'image/jpeg' });
+    }
+
+    // No image found → generate a text-based cover
+    return await _makeTextCover(file.name);
+  } catch(e) {
+    console.warn('EPUB cover extraction failed:', e.message);
+    return null;
+  }
+}
+
+// Generate a stylish text-based cover when no image is available
+async function _makeTextCover(fileName) {
+  try {
+    const canvas  = document.createElement('canvas');
+    canvas.width  = 200;
+    canvas.height = 280;
+    const ctx     = canvas.getContext('2d');
+
+    // Background gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, 280);
+    grad.addColorStop(0, '#1a1208');
+    grad.addColorStop(1, '#0d0a04');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 200, 280);
+
+    // Amber spine line
+    ctx.fillStyle = '#c8902a';
+    ctx.fillRect(0, 0, 4, 280);
+
+    // Title text
+    const title = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    ctx.fillStyle = '#e8d5a3';
+    ctx.font = 'bold 16px serif';
+    ctx.textAlign = 'center';
+    // Word wrap
+    const words = title.split(' ');
+    let line = '', y = 120, lines = [];
+    for (const w of words) {
+      const test = line + (line ? ' ' : '') + w;
+      if (ctx.measureText(test).width > 160 && line) { lines.push(line); line = w; }
+      else line = test;
+    }
+    lines.push(line);
+    const startY = 140 - (lines.length * 20) / 2;
+    lines.forEach((l, i) => ctx.fillText(l, 100, startY + i * 22));
+
+    // Decorative line
+    ctx.strokeStyle = '#c8902a';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(30, startY - 14); ctx.lineTo(170, startY - 14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(30, startY + lines.length * 22 + 4); ctx.lineTo(170, startY + lines.length * 22 + 4); ctx.stroke();
+
+    return await new Promise(resolve => {
+      canvas.toBlob(blob => resolve(blob ? new File([blob], 'cover.jpg', { type: 'image/jpeg' }) : null), 'image/jpeg', 0.85);
+    });
+  } catch(e) { return null; }
+}
+
+async function uploadThumbnail(imageFile) {
+  if (!imageFile) return null;
+  try {
+    const fd = new FormData();
+    fd.append('file', imageFile);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    fd.append('folder', 'covers');
+    const res  = await fetch('https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD + '/image/upload', {
+      method: 'POST', body: fd
+    });
+    const data = await res.json();
+    return data.secure_url || null;
+  } catch(e) {
+    console.warn('Cover upload failed:', e.message);
+    return null;
   }
 }
 
@@ -280,13 +441,19 @@ async function startBulkUpload() {
     progBar.style.width = Math.round((i / total) * 100) + '%';
     try {
       const url = await uploadToCloudinary(file, 'books', () => {});
+      const ft2 = file.name.split('.').pop().toLowerCase();
+      let coverUrl2 = null;
+      if (ft2 === 'pdf') {
+        progText.textContent = 'Generating cover for: ' + title;
+        const thumbFile = await generatePdfThumbnail(file);
+        if (thumbFile) coverUrl2 = await uploadThumbnail(thumbFile);
+      }
       await db.collection('books').add({
         title, author: null, category: folder,
-        fileType: file.name.split('.').pop().toLowerCase(),
-        fileSize: file.size, downloadUrl: url,
+        fileType: ft2, fileSize: file.size, downloadUrl: url,
         uploadedBy: currentUser.uid,
         uploadedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        coverUrl: null,
+        coverUrl: coverUrl2,
       });
       if (typeof logActivity === 'function') logActivity('book_uploaded', { title });
       done++;
@@ -303,3 +470,79 @@ async function startBulkUpload() {
 
 function _getIcon(t) { return { pdf:'📕', epub:'📗', txt:'📄', doc:'📝', docx:'📝' }[t] || '📁'; }
 function _cleanName(n) { return n.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+
+// ── Generate Missing Covers (retroactive) ─────────────────────
+async function generateMissingCovers() {
+  const btn    = document.getElementById('fixCoversBtn');
+  const status = document.getElementById('fixCoversStatus');
+  if (btn) { btn.disabled = true; btn.textContent = 'Working…'; }
+
+  try {
+    const snap = await db.collection('books')
+      .where('fileType', '==', 'pdf')
+      .get();
+
+    const missing = snap.docs.filter(d => !d.data().coverUrl);
+    if (!missing.length) {
+      if (status) status.textContent = '✅ All PDF books already have covers.';
+      if (btn) { btn.disabled = false; btn.textContent = '🖼 Generate Missing Covers'; }
+      return;
+    }
+
+    if (status) status.textContent = '0 / ' + missing.length + ' processed…';
+    let done = 0, failed = 0;
+
+    for (const doc of missing) {
+      const data = doc.data();
+      try {
+        if (status) status.textContent = 'Fetching: ' + (data.title || doc.id) + '…';
+
+        // Fetch the PDF via CORS proxy
+        const pdfUrl = data.downloadUrl;
+        const proxied = 'https://corsproxy.io/?' + encodeURIComponent(pdfUrl);
+        const res  = await fetch(proxied);
+        if (!res.ok) throw new Error('Fetch failed (' + res.status + ')');
+        const buf  = await res.arrayBuffer();
+
+        // Generate thumbnail from buffer
+        if (typeof pdfjsLib === 'undefined') throw new Error('pdf.js not loaded');
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const pdf    = await pdfjsLib.getDocument({ data: buf }).promise;
+        const page   = await pdf.getPage(1);
+        const vp     = page.getViewport({ scale: 1 });
+        const scale  = 200 / vp.width;
+        const svp    = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = svp.width; canvas.height = svp.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport: svp }).promise;
+
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+        if (!blob) throw new Error('Canvas blob failed');
+
+        const thumbFile = new File([blob], 'cover.jpg', { type: 'image/jpeg' });
+        const coverUrl  = await uploadThumbnail(thumbFile);
+        if (!coverUrl) throw new Error('Cover upload returned null');
+
+        await db.collection('books').doc(doc.id).update({ coverUrl });
+        // Update in-memory
+        const book = allBooks.find(b => b.id === doc.id);
+        if (book) book.coverUrl = coverUrl;
+        done++;
+      } catch(e) {
+        console.warn('Cover failed for', data.title, ':', e.message);
+        failed++;
+      }
+      if (status) status.textContent = done + ' done' + (failed ? ', ' + failed + ' failed' : '') + ' / ' + missing.length;
+    }
+
+    renderBooks();
+    showToast(done + ' covers generated!', 'success');
+    if (status) status.textContent = '✅ Done: ' + done + ' generated' + (failed ? ', ' + failed + ' failed (check console)' : '');
+  } catch(e) {
+    if (status) status.textContent = '❌ Error: ' + e.message;
+    showToast('Error: ' + e.message, 'error');
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🖼 Generate Missing Covers'; }
+}
