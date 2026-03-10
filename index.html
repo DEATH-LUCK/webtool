@@ -298,8 +298,8 @@
     </div>
 
     <div class="admin-tabs">
-      <button class="admin-tab-btn active" onclick="showAdminTab('users',this)" data-tab="users">Users</button>
-      <button class="admin-tab-btn"        onclick="showAdminTab('folders',this)" data-tab="folders">Folders</button>
+      <button class="admin-tab-btn active" onclick="showAdminTab('users',this)" data-tab="users">Users <span class="tab-count" id="userCountBadge"></span></button>
+      <button class="admin-tab-btn"        onclick="showAdminTab('folders',this)" data-tab="folders">Folders <span class="tab-count" id="folderCountBadge"></span></button>
     </div>
 
     <div class="admin-content">
@@ -313,6 +313,7 @@
           </div>
         </div>
         <div class="admin-section-label">All Users</div>
+        <div class="user-search-wrap"><input type="text" id="userSearchInput" class="user-search-input" placeholder="Filter by email…" oninput="filterUsers(this.value)"></div>
         <div id="usersList"></div>
       </div>
 

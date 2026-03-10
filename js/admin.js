@@ -1,5 +1,5 @@
 // ============================================================
-// ADMIN.JS — Admin Panel
+// ADMIN.JS — Admin Panel (v2 — full management)
 // ============================================================
 // escapeHtml is defined in library.js
 
@@ -12,20 +12,18 @@ function closeAdminPanel() {
   document.getElementById('adminPanel').classList.remove('open');
 }
 
-// Called from HTML onclick — receives the button element
 function showAdminTab(tab, evtTarget) {
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.admin-tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('[id^="adminPane_"]').forEach(p => p.style.display = 'none');
   document.getElementById('adminPane_' + tab).style.display = 'block';
   if (evtTarget) evtTarget.classList.add('active');
   if (tab === 'users')   loadUsersPane();
   if (tab === 'folders') loadFoldersPane();
 }
 
-// Internal call (no button target needed)
 function _showAdminTab(tab) {
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.admin-tab-pane').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('[id^="adminPane_"]').forEach(p => p.style.display = 'none');
   document.getElementById('adminPane_' + tab).style.display = 'block';
   const btn = document.querySelector('.admin-tab-btn[data-tab="' + tab + '"]');
   if (btn) btn.classList.add('active');
@@ -33,60 +31,131 @@ function _showAdminTab(tab) {
   if (tab === 'folders') loadFoldersPane();
 }
 
-// ── USERS ─────────────────────────────────────────────────────
+// ══════════════════════════════════════════════
+// USERS PANE
+// ══════════════════════════════════════════════
 async function loadUsersPane() {
   const el = document.getElementById('usersList');
-  el.innerHTML = '<p class="muted">Loading...</p>';
+  el.innerHTML = '<p class="muted" style="padding:16px 0">Loading users…</p>';
   try {
     const snap = await db.collection('users').get();
-    if (snap.empty) { el.innerHTML = '<p class="muted">No users found.</p>'; return; }
+    if (snap.empty) {
+      el.innerHTML = '<p class="muted" style="padding:16px 0">No users found.</p>';
+      return;
+    }
     el.innerHTML = '';
-    snap.docs.forEach(doc => {
+
+    // Sort: admins first, then by email/id
+    const docs = snap.docs.slice().sort((a, b) => {
+      const aAdmin = a.data().role === 'admin' ? 0 : 1;
+      const bAdmin = b.data().role === 'admin' ? 0 : 1;
+      if (aAdmin !== bAdmin) return aAdmin - bAdmin;
+      const aEmail = a.data().email || a.id;
+      const bEmail = b.data().email || b.id;
+      return aEmail.localeCompare(bEmail);
+    });
+
+    docs.forEach(doc => {
       const data    = doc.data();
       const isAdmin = data.role === 'admin';
-      const isSelf  = doc.id === currentUser.uid || doc.id === currentUser.email;
+      // Show email if stored, otherwise show UID truncated
+      const displayEmail = data.email || doc.id;
+      const isUID  = !data.email; // if no email field, it's a UID
+      const isSelf = doc.id === currentUser.uid || doc.id === currentUser.email;
 
       const row = document.createElement('div');
       row.className = 'user-row';
 
+      // Avatar circle
+      const avatar = document.createElement('div');
+      avatar.className = 'user-avatar ' + (isAdmin ? 'user-avatar-admin' : '');
+      avatar.textContent = displayEmail[0].toUpperCase();
+
+      // Info section
       const info = document.createElement('div');
       info.className = 'user-info';
-      info.innerHTML =
-        '<div class="user-email">' + escapeHtml(doc.id) + '</div>' +
-        '<div class="user-badge ' + (isAdmin ? 'badge-admin' : 'badge-user') + '">' +
-          (isAdmin ? '👑 Admin' : '👤 User') +
-        '</div>';
 
+      const emailEl = document.createElement('div');
+      emailEl.className = 'user-email';
+      emailEl.textContent = displayEmail;
+      // If UID being shown, add a warning title
+      if (isUID) emailEl.title = 'UID: ' + doc.id + ' (email not stored)';
+
+      const badgeEl = document.createElement('div');
+      badgeEl.className = 'user-role-badge ' + (isAdmin ? 'role-admin' : 'role-user');
+      badgeEl.textContent = isAdmin ? '⬟ Admin' : '○ User';
+
+      info.appendChild(emailEl);
+      info.appendChild(badgeEl);
+
+      // Actions
       const actions = document.createElement('div');
-      if (!isSelf) {
-        const btn = document.createElement('button');
-        btn.className   = 'btn btn-ghost btn-sm';
-        btn.textContent = isAdmin ? '⬇ Make User' : '⬆ Make Admin';
-        btn.onclick     = () => toggleRole(doc.id, isAdmin);
-        actions.appendChild(btn);
+      actions.className = 'user-actions';
+
+      if (isSelf) {
+        const selfBadge = document.createElement('span');
+        selfBadge.className = 'you-badge';
+        selfBadge.textContent = 'You';
+        actions.appendChild(selfBadge);
       } else {
-        actions.innerHTML = '<span class="muted" style="font-size:0.75rem">You</span>';
+        // Toggle role button
+        const roleBtn = document.createElement('button');
+        roleBtn.className = 'btn btn-sm ' + (isAdmin ? 'btn-ghost' : 'btn-amber-outline');
+        roleBtn.textContent = isAdmin ? '↓ Make User' : '↑ Make Admin';
+        roleBtn.title = isAdmin ? 'Revoke admin access' : 'Grant admin access';
+        roleBtn.onclick = () => toggleRole(doc.id, isAdmin);
+
+        // Delete button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-sm btn-danger';
+        delBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 1.5l8 8M9.5 1.5l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+        delBtn.title = 'Delete user';
+        delBtn.onclick = () => deleteUser(doc.id, displayEmail, isAdmin);
+
+        actions.appendChild(roleBtn);
+        actions.appendChild(delBtn);
       }
 
+      row.appendChild(avatar);
       row.appendChild(info);
       row.appendChild(actions);
       el.appendChild(row);
     });
+
+    // User count badge
+    const countEl = document.getElementById('userCountBadge');
+    if (countEl) countEl.textContent = snap.size;
+
   } catch(e) {
-    el.innerHTML = '<p style="color:var(--danger)">Error: ' + e.message + '</p>';
+    el.innerHTML = '<p class="error-msg">Error loading users: ' + e.message + '</p>';
   }
 }
 
 async function toggleRole(userId, isAdmin) {
   try {
     await db.collection('users').doc(userId).update({ role: isAdmin ? 'user' : 'admin' });
-    showToast(userId + ' role updated!', 'success');
+    showToast(isAdmin ? 'Role changed to User' : 'Role changed to Admin', 'success');
+    loadUsersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteUser(userId, displayEmail, isAdmin) {
+  if (isAdmin) {
+    showToast('Cannot delete an admin. Demote to User first.', 'error');
+    return;
+  }
+  const confirmed = confirm('Delete user "' + displayEmail + '"?\n\nThis removes their access record. Their books will remain.');
+  if (!confirmed) return;
+  try {
+    await db.collection('users').doc(userId).delete();
+    showToast('User removed.', 'success');
     loadUsersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 async function addAdmin() {
-  const email = document.getElementById('adminEmailInput').value.trim();
+  const input = document.getElementById('adminEmailInput');
+  const email = input.value.trim();
   if (!email) { showToast('Enter an email address.', 'error'); return; }
   try {
     const snap = await db.collection('users').get();
@@ -101,15 +170,17 @@ async function addAdmin() {
       await db.collection('users').doc(email).set({ role: 'admin', email }, { merge: true });
     }
     showToast(email + ' is now an admin!', 'success');
-    document.getElementById('adminEmailInput').value = '';
+    input.value = '';
     loadUsersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
-// ── FOLDERS ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════
+// FOLDERS PANE
+// ══════════════════════════════════════════════
 async function loadFoldersPane() {
   const el = document.getElementById('foldersList');
-  el.innerHTML = '<p class="muted">Loading...</p>';
+  el.innerHTML = '<p class="muted" style="padding:16px 0">Loading folders…</p>';
   try {
     const [bSnap, fSnap] = await Promise.all([
       db.collection('books').get(),
@@ -122,97 +193,188 @@ async function loadFoldersPane() {
       const d = doc.data();
       const cat = d.category || 'General';
       if (!folderMap[cat]) folderMap[cat] = [];
-      folderMap[cat].push({ id: doc.id, title: d.title || 'Untitled' });
+      folderMap[cat].push({ id: doc.id, title: d.title || 'Untitled', author: d.author || '' });
     });
 
     const allFolderNames = Object.keys(folderMap).sort();
     el.innerHTML = '';
 
+    // Folder count badge
+    const countEl = document.getElementById('folderCountBadge');
+    if (countEl) countEl.textContent = allFolderNames.length;
+
     if (allFolderNames.length === 0) {
-      el.innerHTML = '<p class="muted" style="text-align:center;padding:20px;">No folders yet.</p>';
+      el.innerHTML = '<div class="empty-admin"><div class="empty-admin-icon">📂</div><p>No folders yet. Create one above.</p></div>';
       return;
     }
 
     allFolderNames.forEach(folderName => {
       const books  = folderMap[folderName];
-      const safeId = 'fp_' + folderName.replace(/[^a-z0-9]/gi, '_') + '_' + Math.random().toString(36).slice(2,6);
+      const safeId = 'fp_' + Math.random().toString(36).slice(2, 8);
 
-      const div = document.createElement('div');
-      div.className = 'folder-manage-row';
+      const card = document.createElement('div');
+      card.className = 'folder-card';
 
-      // Header
+      // ── Folder Card Header ────────────────────────────────
       const header = document.createElement('div');
-      header.className = 'folder-manage-header';
-      header.onclick   = () => togglePane(safeId);
+      header.className = 'folder-card-header';
 
-      const headerLeft = document.createElement('div');
-      headerLeft.style.cssText = 'display:flex;align-items:center;gap:8px;';
-      headerLeft.innerHTML =
-        '<span class="chevron" id="chev_' + safeId + '">▶</span>' +
-        '<strong>📁 ' + escapeHtml(folderName) + '</strong>' +
-        '<span class="muted" style="font-size:0.78rem;">(' + books.length + ' books)</span>';
+      const left = document.createElement('div');
+      left.className = 'folder-card-left';
+      left.onclick = () => toggleFolderCard(safeId);
+      left.style.cursor = 'pointer';
+      left.innerHTML =
+        '<div class="folder-card-icon">📁</div>' +
+        '<div class="folder-card-meta">' +
+          '<span class="folder-card-name">' + escapeHtml(folderName) + '</span>' +
+          '<span class="folder-card-count">' + books.length + ' book' + (books.length !== 1 ? 's' : '') + '</span>' +
+        '</div>' +
+        '<span class="folder-chevron" id="chev_' + safeId + '">›</span>';
 
-      // FIX: use DOM event instead of inline onclick with string interpolation
+      const headerActions = document.createElement('div');
+      headerActions.className = 'folder-header-actions';
+
+      // Rename button
+      const renameBtn = document.createElement('button');
+      renameBtn.className = 'btn btn-sm btn-ghost';
+      renameBtn.innerHTML = '✏ Rename';
+      renameBtn.onclick = (e) => { e.stopPropagation(); startRenameFolder(folderName, card); };
+
+      // Delete button
       const delBtn = document.createElement('button');
-      delBtn.className   = 'btn btn-danger btn-sm';
-      delBtn.textContent = '🗑 Delete';
+      delBtn.className = 'btn btn-sm btn-danger';
+      delBtn.innerHTML = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg> Delete';
       delBtn.onclick = (e) => { e.stopPropagation(); deleteFolder(folderName, books.length); };
 
-      header.appendChild(headerLeft);
-      header.appendChild(delBtn);
+      headerActions.appendChild(renameBtn);
+      headerActions.appendChild(delBtn);
+      header.appendChild(left);
+      header.appendChild(headerActions);
 
-      // Body
+      // ── Rename inline input (hidden by default) ───────────
+      const renameRow = document.createElement('div');
+      renameRow.className = 'folder-rename-row';
+      renameRow.id = 'rename_' + safeId;
+      renameRow.style.display = 'none';
+      renameRow.innerHTML =
+        '<input type="text" class="folder-rename-input" placeholder="New folder name…" value="' + escapeHtml(folderName) + '">' +
+        '<button class="btn btn-primary btn-sm rename-save-btn">Save</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="cancelRename(\'' + safeId + '\')">Cancel</button>';
+      renameRow.querySelector('.rename-save-btn').onclick = () => {
+        const newName = renameRow.querySelector('input').value.trim();
+        renameFolder(folderName, newName, safeId);
+      };
+
+      // ── Books Body ─────────────────────────────────────────
       const body = document.createElement('div');
-      body.className    = 'folder-manage-body';
-      body.id           = safeId;
+      body.className = 'folder-card-body';
+      body.id = safeId;
       body.style.display = 'none';
 
       if (books.length === 0) {
-        body.innerHTML = '<p class="muted" style="padding:12px;font-size:0.82rem;">Empty folder</p>';
+        body.innerHTML = '<p class="folder-empty-msg">This folder is empty.</p>';
       } else {
         books.forEach(b => {
           const bookRow = document.createElement('div');
-          bookRow.className = 'folder-book-row';
+          bookRow.className = 'folder-book-entry';
 
-          const titleSpan = document.createElement('span');
-          titleSpan.className   = 'folder-book-title';
-          titleSpan.textContent = '📄 ' + b.title;
+          const bookInfo = document.createElement('div');
+          bookInfo.className = 'folder-book-info';
+          bookInfo.innerHTML =
+            '<span class="folder-book-name">' + escapeHtml(b.title) + '</span>' +
+            (b.author ? '<span class="folder-book-author">' + escapeHtml(b.author) + '</span>' : '');
+
+          const moveWrap = document.createElement('div');
+          moveWrap.className = 'folder-book-actions';
 
           const moveSelect = document.createElement('select');
           moveSelect.className = 'move-select';
           const defaultOpt = document.createElement('option');
-          defaultOpt.value = ''; defaultOpt.textContent = 'Move to...';
+          defaultOpt.value = ''; defaultOpt.textContent = 'Move to…';
           moveSelect.appendChild(defaultOpt);
           allFolderNames.filter(f => f !== folderName).forEach(f => {
             const opt = document.createElement('option');
-            opt.value = f; opt.textContent = '📁 ' + f;
+            opt.value = f; opt.textContent = f;
             moveSelect.appendChild(opt);
           });
-          moveSelect.onchange = function() { moveBook(b.id, this.value, this); };
+          moveSelect.onchange = function() { if (this.value) moveBook(b.id, this.value, this); };
 
-          bookRow.appendChild(titleSpan);
-          bookRow.appendChild(moveSelect);
+          // Delete book from here too
+          const delBookBtn = document.createElement('button');
+          delBookBtn.className = 'btn btn-sm btn-danger';
+          delBookBtn.innerHTML = '🗑';
+          delBookBtn.title = 'Delete this book';
+          delBookBtn.onclick = () => {
+            if (confirm('Delete "' + b.title + '"? This cannot be undone.')) {
+              db.collection('books').doc(b.id).delete().then(() => {
+                allBooks = allBooks.filter(ab => ab.id !== b.id);
+                renderBooks();
+                showToast('"' + b.title + '" deleted.', 'success');
+                loadFoldersPane();
+              }).catch(err => showToast('Error: ' + err.message, 'error'));
+            }
+          };
+
+          moveWrap.appendChild(moveSelect);
+          moveWrap.appendChild(delBookBtn);
+          bookRow.appendChild(bookInfo);
+          bookRow.appendChild(moveWrap);
           body.appendChild(bookRow);
         });
       }
 
-      div.appendChild(header);
-      div.appendChild(body);
-      el.appendChild(div);
+      card.appendChild(header);
+      card.appendChild(renameRow);
+      card.appendChild(body);
+      el.appendChild(card);
     });
 
   } catch(e) {
-    el.innerHTML = '<p style="color:var(--danger)">Error: ' + e.message + '</p>';
+    el.innerHTML = '<p class="error-msg">Error: ' + e.message + '</p>';
   }
 }
 
-function togglePane(id) {
-  const el = document.getElementById(id);
-  const ch = document.getElementById('chev_' + id);
-  if (!el) return;
-  const open = el.style.display !== 'none';
-  el.style.display = open ? 'none' : 'block';
-  if (ch) ch.textContent = open ? '▶' : '▼';
+function toggleFolderCard(id) {
+  const body = document.getElementById(id);
+  const chev = document.getElementById('chev_' + id);
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (chev) chev.style.transform = open ? 'rotate(0deg)' : 'rotate(90deg)';
+}
+
+function startRenameFolder(folderName, card) {
+  const rows = card.querySelectorAll('.folder-rename-row');
+  if (rows.length) {
+    rows[0].style.display = rows[0].style.display === 'none' ? 'flex' : 'none';
+    if (rows[0].style.display === 'flex') rows[0].querySelector('input').focus();
+  }
+}
+function cancelRename(safeId) {
+  const row = document.getElementById('rename_' + safeId);
+  if (row) row.style.display = 'none';
+}
+
+async function renameFolder(oldName, newName, safeId) {
+  if (!newName || newName === oldName) {
+    showToast('Enter a different name.', 'error'); return;
+  }
+  try {
+    // Create new folder doc
+    await db.collection('folders').doc(newName).set({
+      name: newName, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // Move all books
+    const snap = await db.collection('books').where('category', '==', oldName).get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.update(d.ref, { category: newName }));
+    await batch.commit();
+    // Delete old folder
+    await db.collection('folders').doc(oldName).delete().catch(() => {});
+    showToast('Folder renamed to "' + newName + '"', 'success');
+    await loadBooks();
+    await loadFoldersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 async function createFolder() {
@@ -234,7 +396,7 @@ async function moveBook(bookId, newFolder, selectEl) {
   if (!newFolder) return;
   try {
     await db.collection('books').doc(bookId).update({ category: newFolder });
-    showToast('Moved to "' + newFolder + '"!', 'success');
+    showToast('Moved to "' + newFolder + '"', 'success');
     if (selectEl) selectEl.value = '';
     await loadBooks();
     await loadFoldersPane();
@@ -243,8 +405,8 @@ async function moveBook(bookId, newFolder, selectEl) {
 
 async function deleteFolder(folder, count) {
   const msg = count > 0
-    ? 'Delete "' + folder + '" and its ' + count + ' books? This cannot be undone.'
-    : 'Delete the empty folder "' + folder + '"?';
+    ? 'Delete "' + folder + '" and all ' + count + ' book(s) inside?\nThis cannot be undone.'
+    : 'Delete empty folder "' + folder + '"?';
   if (!confirm(msg)) return;
   try {
     if (count > 0) {
@@ -252,10 +414,21 @@ async function deleteFolder(folder, count) {
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
+      allBooks = allBooks.filter(b => b.category !== folder);
+      renderBooks();
     }
     await db.collection('folders').doc(folder).delete().catch(() => {});
     showToast('"' + folder + '" deleted.', 'success');
-    await loadBooks();
     await loadFoldersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+// ── User Filter ───────────────────────────────────────────────
+function filterUsers(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('#usersList .user-row').forEach(row => {
+    const emailEl = row.querySelector('.user-email');
+    const text = emailEl ? emailEl.textContent.toLowerCase() : '';
+    row.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
 }
