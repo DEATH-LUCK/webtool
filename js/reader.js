@@ -108,19 +108,21 @@ async function renderAllPDFPages() {
   c.style.background = 'transparent';
   c.innerHTML = '<div id="pdfPages" style="display:flex;flex-direction:column;gap:8px;align-items:center;padding:8px;"></div>';
   const wrap = document.getElementById('pdfPages');
-  const screenW = window.innerWidth - 16;
-  const dpr = Math.min(window.devicePixelRatio || 2, 3); // Max 3x for sharp rendering
+  const dpr = window.devicePixelRatio || 2;
+  // Use full screen width × dpr for crisp rendering (same as desktop mode)
+  const screenW = (window.screen.width || window.innerWidth) - 16;
 
   for (let i = 1; i <= totalPages; i++) {
     const page = await pdfDoc.getPage(i);
     const base  = page.getViewport({ scale: 1 });
+    // Scale to fill screen at full resolution
     const scale = (screenW / base.width) * currentZoom * dpr;
     const vp    = page.getViewport({ scale });
 
     const canvas  = document.createElement('canvas');
     canvas.width  = vp.width;
     canvas.height = vp.height;
-    // CSS width = screen width, canvas internal = high-res
+    // Display at CSS screen width — canvas is internally high-res
     canvas.style.cssText = 'width:100%;border-radius:6px;display:block;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
     wrap.appendChild(canvas);
 
@@ -334,9 +336,35 @@ function showReaderDownload(url) {
     '</div>';
 }
 
-// ── Swipe ─────────────────────────────────────────────────────
+// ── Pinch Zoom & Swipe ───────────────────────────────────────
+let lastPinchDist = 0;
+let isPinching = false;
+
 document.addEventListener('touchstart', e => {
-  touchStartX = e.touches[0].clientX;
+  if (e.touches.length === 2) {
+    isPinching = true;
+    lastPinchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  } else {
+    isPinching = false;
+    touchStartX = e.touches[0].clientX;
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', async e => {
+  if (!isPinching || e.touches.length !== 2) return;
+  if (document.getElementById('readerView').style.display === 'none') return;
+  const dist = Math.hypot(
+    e.touches[0].clientX - e.touches[1].clientX,
+    e.touches[0].clientY - e.touches[1].clientY
+  );
+  const delta = dist - lastPinchDist;
+  lastPinchDist = dist;
+  if (Math.abs(delta) > 5 && currentBook?.fileType === 'pdf') {
+    await changeZoom(delta > 0 ? 0.1 : -0.1);
+  }
 }, { passive: true });
 
 document.addEventListener('touchend', e => {
