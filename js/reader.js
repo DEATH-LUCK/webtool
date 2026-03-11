@@ -13,21 +13,19 @@ let epubChapters       = [];
 let epubCurrentChapter = 0;
 let touchStartX = 0;
 
-// Track reader open state reliably (instead of checking display style)
-let readerOpen = false;
-
 async function openReader(book) {
   currentBook = book;
   currentPage = 1;
   currentZoom = 1.0;
   isMobile    = window.innerWidth < 768;
-  readerOpen  = true;
 
+  // Show reader, hide library
   document.getElementById('readerView').style.display  = 'block';
   document.getElementById('libraryView').style.display = 'none';
   document.getElementById('appPage').style.display     = 'block';
   document.getElementById('readerBookTitle').textContent = book.title;
 
+  // Reset
   const canvas = document.getElementById('pdfCanvas');
   canvas.style.display = 'none';
   canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
@@ -36,6 +34,7 @@ async function openReader(book) {
   document.getElementById('readerLoading').style.display = 'flex';
   document.getElementById('readerLoading').innerHTML    = '<div class="spinner"></div><p>Loading...</p>';
 
+  // Download links
   document.querySelectorAll('.reader-download-btn').forEach(el => { el.href = book.downloadUrl; });
 
   if (book.fileType === 'pdf')       await openPDF(book.downloadUrl);
@@ -45,7 +44,6 @@ async function openReader(book) {
 }
 
 function closeReader() {
-  readerOpen = false;
   document.getElementById('readerView').style.display  = 'none';
   document.getElementById('libraryView').style.display = 'block';
   document.getElementById('appPage').style.display     = 'block';
@@ -62,6 +60,7 @@ async function openPDF(url) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // Try fl_attachment first, then original
     try {
       pdfDoc = await pdfjsLib.getDocument({
         url: url.replace('/upload/', '/upload/fl_attachment/'),
@@ -75,8 +74,10 @@ async function openPDF(url) {
     document.getElementById('readerLoading').style.display = 'none';
 
     if (isMobile) {
+      // Mobile: scroll mode — all pages stacked
       await renderAllPDFPages();
     } else {
+      // Desktop: single page mode
       document.getElementById('pdfCanvas').style.display = 'block';
       await renderPDFPage(1);
     }
@@ -85,6 +86,7 @@ async function openPDF(url) {
 
   } catch(e) {
     console.error('PDF load error:', e);
+    // Fallback: Google Docs Viewer
     document.getElementById('readerLoading').style.display = 'none';
     const c = document.getElementById('epubContainer');
     c.style.display = 'block';
@@ -96,24 +98,27 @@ async function openPDF(url) {
   }
 }
 
+// Mobile: render all pages stacked for natural scroll
 async function renderAllPDFPages() {
   const c = document.getElementById('epubContainer');
   c.style.display    = 'block';
   c.style.padding    = '0';
   c.style.background = 'transparent';
   c.innerHTML = '<div id="pdfPages" style="display:flex;flex-direction:column;gap:8px;align-items:center;padding:8px;"></div>';
-  const wrap    = document.getElementById('pdfPages');
+  const wrap = document.getElementById('pdfPages');
   const screenW = window.innerWidth - 16;
+  const dpr = window.devicePixelRatio || 2; // Use device pixel ratio for sharp text
 
   for (let i = 1; i <= totalPages; i++) {
-    const page  = await pdfDoc.getPage(i);
+    const page = await pdfDoc.getPage(i);
     const base  = page.getViewport({ scale: 1 });
-    const scale = (screenW / base.width) * currentZoom;
+    const scale = (screenW / base.width) * currentZoom * dpr;
     const vp    = page.getViewport({ scale });
 
     const canvas  = document.createElement('canvas');
     canvas.width  = vp.width;
     canvas.height = vp.height;
+    // CSS width = screen width, canvas internal = high-res
     canvas.style.cssText = 'width:100%;border-radius:6px;display:block;box-shadow:0 4px 20px rgba(0,0,0,0.4);';
     wrap.appendChild(canvas);
 
@@ -126,16 +131,17 @@ async function renderAllPDFPages() {
   updateNavBtns();
 }
 
+// Desktop: single page render
 async function renderPDFPage(num) {
   if (isRendering || !pdfDoc) return;
   isRendering = true;
   const canvas = document.getElementById('pdfCanvas');
   canvas.style.opacity = '0.4';
   try {
-    const page = await pdfDoc.getPage(num);
-    const body = document.getElementById('readerBody');
-    const maxW = Math.min(body.clientWidth - 48, 900);
-    const base = page.getViewport({ scale: 1 });
+    const page  = await pdfDoc.getPage(num);
+    const body  = document.getElementById('readerBody');
+    const maxW  = Math.min(body.clientWidth - 48, 900);
+    const base  = page.getViewport({ scale: 1 });
     const scale = (maxW / base.width) * currentZoom;
     const vp    = page.getViewport({ scale });
 
@@ -147,8 +153,6 @@ async function renderPDFPage(num) {
     updatePageInfo();
     updateNavBtns();
     body.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch(e) {
-    console.error('renderPDFPage error:', e);
   } finally {
     isRendering      = false;
     canvas.style.opacity = '1';
@@ -156,6 +160,7 @@ async function renderPDFPage(num) {
 }
 
 async function changePage(delta) {
+  // EPUB navigation
   if (currentBook?.fileType === 'epub') {
     const next = epubCurrentChapter + delta;
     if (next < 0 || next >= epubChapters.length) return;
@@ -163,7 +168,9 @@ async function changePage(delta) {
     renderEPUBChapter(epubCurrentChapter);
     return;
   }
+  // PDF mobile = scroll, no page buttons needed
   if (isMobile && currentBook?.fileType === 'pdf') return;
+  // PDF desktop
   const np = currentPage + delta;
   if (np < 1 || np > totalPages) return;
   await renderPDFPage(np);
@@ -219,18 +226,19 @@ async function openEPUB(url) {
     const zip = await JSZip.loadAsync(ab);
 
     const containerXml = await zip.file('META-INF/container.xml').async('text');
-    const parser       = new DOMParser();
+    const parser = new DOMParser();
     const containerDoc = parser.parseFromString(containerXml, 'text/xml');
-    const opfPath      = containerDoc.querySelector('rootfile').getAttribute('full-path');
-    const opfDir       = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
-    const opfXml       = await zip.file(opfPath).async('text');
-    const opfDoc       = parser.parseFromString(opfXml, 'text/xml');
+    const opfPath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+    const opfDir  = opfPath.includes('/') ? opfPath.substring(0, opfPath.lastIndexOf('/') + 1) : '';
+    const opfXml  = await zip.file(opfPath).async('text');
+    const opfDoc  = parser.parseFromString(opfXml, 'text/xml');
 
     const manifest = {};
     opfDoc.querySelectorAll('manifest item').forEach(item => {
       manifest[item.getAttribute('id')] = item.getAttribute('href');
     });
 
+    // Pre-load images as blob URLs
     const imageCache = {};
     for (const [, href] of Object.entries(manifest)) {
       if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(href)) {
@@ -238,7 +246,7 @@ async function openEPUB(url) {
         const imgFile  = zip.file(fullPath) || zip.file(href);
         if (imgFile) {
           try {
-            const blob    = await imgFile.async('blob');
+            const blob   = await imgFile.async('blob');
             const blobUrl = URL.createObjectURL(blob);
             imageCache[href] = blobUrl;
             imageCache[href.split('/').pop()] = blobUrl;
@@ -260,7 +268,7 @@ async function openEPUB(url) {
         doc.querySelectorAll('img,image').forEach(img => {
           const src  = img.getAttribute('src') || img.getAttribute('xlink:href') || '';
           const base = src.split('/').pop();
-          if (imageCache[src])       img.setAttribute('src', imageCache[src]);
+          if (imageCache[src])  img.setAttribute('src', imageCache[src]);
           else if (imageCache[base]) img.setAttribute('src', imageCache[base]);
         });
         const body = doc.body?.innerHTML || '';
@@ -286,8 +294,8 @@ function renderEPUBChapter(index) {
     'font-size:1rem;line-height:1.9;color:var(--text);padding:8px;">' +
     epubChapters[index] + '</div>';
   c.querySelectorAll('img').forEach(img => {
-    img.style.maxWidth     = '100%';
-    img.style.height       = 'auto';
+    img.style.maxWidth    = '100%';
+    img.style.height      = 'auto';
     img.style.borderRadius = '6px';
   });
   currentPage = index + 1;
@@ -300,7 +308,6 @@ function renderEPUBChapter(index) {
 async function openTXT(url) {
   try {
     const r    = await fetch(url);
-    if (!r.ok) throw new Error('Fetch failed');
     const text = await r.text();
     document.getElementById('readerLoading').style.display = 'none';
     const c = document.getElementById('epubContainer');
@@ -321,7 +328,7 @@ function showReaderDownload(url) {
     '<div style="font-size:3rem;margin-bottom:16px">📄</div>' +
     '<h3 style="margin-bottom:8px">Preview not available</h3>' +
     '<p style="color:var(--text2);margin-bottom:20px">Download to read this file.</p>' +
-    '<a href="' + url + '" target="_blank" rel="noopener" class="btn btn-primary">⬇ Download</a>' +
+    '<a href="' + url + '" target="_blank" class="btn btn-primary">⬇ Download</a>' +
     '</div>';
 }
 
@@ -331,7 +338,7 @@ document.addEventListener('touchstart', e => {
 }, { passive: true });
 
 document.addEventListener('touchend', e => {
-  if (!readerOpen) return;
+  if (document.getElementById('readerView').style.display === 'none') return;
   const dx = e.changedTouches[0].clientX - touchStartX;
   if (Math.abs(dx) > 70 && currentBook?.fileType !== 'pdf') {
     if (dx < 0) changePage(1);
@@ -341,12 +348,10 @@ document.addEventListener('touchend', e => {
 
 // ── Keyboard ──────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (!readerOpen) return;
-  // Don't hijack keys when typing in an input
-  if (['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) return;
+  if (document.getElementById('readerView').style.display === 'none') return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changePage(1);
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   changePage(-1);
   if (e.key === 'Escape') closeReader();
-  if (e.key === '+' || e.key === '=') changeZoom(0.15);
+  if (e.key === '+') changeZoom(0.15);
   if (e.key === '-') changeZoom(-0.15);
 });
