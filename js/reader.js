@@ -60,15 +60,17 @@ async function openPDF(url) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    // Try fl_attachment first, then original
-    try {
-      pdfDoc = await pdfjsLib.getDocument({
-        url: url.replace('/upload/', '/upload/fl_attachment/'),
-        withCredentials: false
-      }).promise;
-    } catch(e) {
-      pdfDoc = await pdfjsLib.getDocument({ url, withCredentials: false }).promise;
+    // Force Cloudinary best quality + no compression
+    const qualityUrl = url.replace('/upload/', '/upload/q_100,f_auto/');
+    const urls = [qualityUrl, url.replace('/upload/', '/upload/fl_attachment/'), url];
+    let loaded = false;
+    for (const u of urls) {
+      try {
+        pdfDoc = await pdfjsLib.getDocument({ url: u, withCredentials: false }).promise;
+        loaded = true; break;
+      } catch(e) {}
     }
+    if (!loaded) throw new Error('Could not load PDF');
 
     totalPages = pdfDoc.numPages;
     document.getElementById('readerLoading').style.display = 'none';
@@ -107,7 +109,7 @@ async function renderAllPDFPages() {
   c.innerHTML = '<div id="pdfPages" style="display:flex;flex-direction:column;gap:8px;align-items:center;padding:8px;"></div>';
   const wrap = document.getElementById('pdfPages');
   const screenW = window.innerWidth - 16;
-  const dpr = window.devicePixelRatio || 2; // Use device pixel ratio for sharp text
+  const dpr = Math.min(window.devicePixelRatio || 2, 3); // Max 3x for sharp rendering
 
   for (let i = 1; i <= totalPages; i++) {
     const page = await pdfDoc.getPage(i);
