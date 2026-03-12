@@ -56,13 +56,38 @@ function closeReader() {
 
 // ── PDF ───────────────────────────────────────────────────────
 async function openPDF(url) {
+  // Google Drive files — use PDF.js with cors proxy or Google Docs viewer
+  const isGDrive = url.includes('drive.google.com') || url.includes('docs.google.com');
+
+  if (isGDrive) {
+    // Extract file ID from Google Drive URL
+    let fileId = null;
+    const m1 = url.match(/[?&]id=([^&]+)/);
+    const m2 = url.match(/\/d\/([^/]+)/);
+    if (m1) fileId = m1[1];
+    else if (m2) fileId = m2[1];
+
+    if (fileId) {
+      // Use Google Docs Viewer for Drive files
+      document.getElementById('readerLoading').style.display = 'none';
+      const c = document.getElementById('epubContainer');
+      c.style.display = 'block';
+      c.style.height  = 'calc(100vh - 120px)';
+      c.innerHTML =
+        '<iframe src="https://drive.google.com/file/d/' + fileId + '/preview" ' +
+        'style="width:100%;height:100%;border:none;border-radius:8px;" ' +
+        'allow="autoplay" allowfullscreen></iframe>';
+      totalPages = 1; currentPage = 1;
+      updatePageInfo(); updateNavBtns();
+      return;
+    }
+  }
+
   try {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-    // Force Cloudinary best quality + no compression
-    const qualityUrl = url.replace('/upload/', '/upload/q_100,f_auto/');
-    const urls = [qualityUrl, url.replace('/upload/', '/upload/fl_attachment/'), url];
+    const urls = [url];
     let loaded = false;
     for (const u of urls) {
       try {
