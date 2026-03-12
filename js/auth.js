@@ -26,8 +26,10 @@ auth.onAuthStateChanged(async (user) => {
     let doc = await db.collection('users').doc(user.uid).get();
     const isExistingUser = doc.exists;
 
-    if (!user.emailVerified && !isExistingUser) {
-      // New user, not verified — block
+    const isAdmin = doc.exists && doc.data().role === 'admin';
+
+    if (!user.emailVerified && !isExistingUser && !isAdmin) {
+      // Only block brand new unverified users — not existing or admin
       await auth.signOut();
       const err = document.getElementById('authError');
       if (err) {
