@@ -22,8 +22,12 @@ applyTheme();
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    if (!user.emailVerified) {
-      // Not verified — sign out and show message
+    // Check if user exists in Firestore (existing user) or is new
+    let doc = await db.collection('users').doc(user.uid).get();
+    const isExistingUser = doc.exists;
+
+    if (!user.emailVerified && !isExistingUser) {
+      // New user, not verified — block
       await auth.signOut();
       const err = document.getElementById('authError');
       if (err) {
