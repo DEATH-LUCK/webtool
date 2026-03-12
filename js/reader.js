@@ -68,17 +68,34 @@ async function openPDF(url) {
     else if (m2) fileId = m2[1];
 
     if (fileId) {
-      // Use Google Docs Viewer for Drive files
-      document.getElementById('readerLoading').style.display = 'none';
-      const c = document.getElementById('epubContainer');
-      c.style.display = 'block';
-      c.style.height  = 'calc(100vh - 120px)';
-      c.innerHTML =
-        '<iframe src="https://drive.google.com/file/d/' + fileId + '/preview" ' +
-        'style="width:100%;height:100%;border:none;border-radius:8px;" ' +
-        'allow="autoplay" allowfullscreen></iframe>';
-      totalPages = 1; currentPage = 1;
-      updatePageInfo(); updateNavBtns();
+      // Use PDF.js with cors proxy for Google Drive files
+      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://drive.google.com/uc?export=download&id=' + fileId);
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfDoc = await pdfjsLib.getDocument({ url: proxyUrl, withCredentials: false }).promise;
+        totalPages = pdfDoc.numPages;
+        document.getElementById('readerLoading').style.display = 'none';
+        if (isMobile) {
+          await renderAllPDFPages();
+        } else {
+          document.getElementById('pdfCanvas').style.display = 'block';
+          await renderPDFPage(1);
+        }
+        updatePageInfo(); updateNavBtns();
+      } catch(e) {
+        // Fallback: Google Drive preview iframe
+        document.getElementById('readerLoading').style.display = 'none';
+        const c = document.getElementById('epubContainer');
+        c.style.display = 'block';
+        c.style.height  = 'calc(100vh - 120px)';
+        c.innerHTML =
+          '<iframe src="https://drive.google.com/file/d/' + fileId + '/preview" ' +
+          'style="width:100%;height:100%;border:none;border-radius:8px;" ' +
+          'allow="autoplay" allowfullscreen></iframe>';
+        totalPages = 1; currentPage = 1;
+        updatePageInfo(); updateNavBtns();
+      }
       return;
     }
   }
