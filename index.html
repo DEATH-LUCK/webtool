@@ -8,25 +8,22 @@
 </head>
 <body>
 
-<!-- ══════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      LOGIN PAGE
-═══════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <div id="loginPage">
   <div class="login-box">
-    <div class="login-logo">My Library</div>
-    <div class="login-subtitle">Your personal reading collection</div>
-
+    <div class="login-logo">📚 My Library</div>
+    <div class="login-subtitle">Your personal digital collection</div>
     <div class="form-group">
       <label class="form-label">Email</label>
       <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
     </div>
     <div class="form-group">
       <label class="form-label">Password</label>
-      <input type="password" id="passwordInput" placeholder="••••••••"
-        autocomplete="current-password"
+      <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
         onkeydown="if(event.key==='Enter') handleSignIn()">
     </div>
-
     <div class="auth-buttons">
       <button class="btn btn-primary" onclick="handleSignIn()">Sign In</button>
       <button class="btn btn-ghost" onclick="handleSignUp()">Create Account</button>
@@ -35,258 +32,185 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      APP PAGE
-═══════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <div id="appPage">
 
-  <!-- ── Navbar ──────────────────────────────────── -->
+  <!-- Navbar -->
   <nav class="navbar">
-    <div class="navbar-inner" style="position:relative">
-
-      <div class="nav-logo" onclick="closeReader()">
-        <span class="nav-logo-icon">📚</span> My Library
-      </div>
-
+    <div class="navbar-inner" style="position:relative;">
+      <div class="nav-logo" onclick="closeReader()">📚 My Library</div>
       <div class="nav-right" id="desktopNav">
         <span class="nav-email" id="navEmail"></span>
-        <span class="badge-admin" id="navAdminBadge">Admin</span>
-        <button class="btn btn-ghost btn-sm" id="navBulkBtn" style="display:none" onclick="openBulkUpload()">⇈ Bulk</button>
-        <button class="btn btn-ghost btn-sm" id="navUploadBtn" style="display:none" onclick="openUploadModal()">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Upload
-        </button>
-        <button class="btn btn-ghost btn-sm" id="navAdminBtn" style="display:none" onclick="openAdminPanel()">
-          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/><circle cx="6.5" cy="6.5" r="2" stroke="currentColor" stroke-width="1.4"/></svg>
-          Admin
-        </button>
-        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">
-          <svg id="themeIcon" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5A5.5 5.5 0 107 12.5a5.5 5.5 0 000-11z" stroke="currentColor" stroke-width="1.4"/><path d="M7 1.5v11" stroke="currentColor" stroke-width="1.4"/></svg>
-        </button>
+        <span class="badge-admin" id="navAdminBadge">ADMIN</span>
+        <button class="btn btn-ghost btn-sm" id="navUploadBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
+        <button class="btn btn-ghost btn-sm" id="navAdminBtn"  style="display:none" onclick="openAdminPanel()">⚙ Admin</button>
+        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
       </div>
-
-      <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">
-        <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-          <path d="M0 1h16M0 6h16M0 11h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </button>
-
+      <!-- Hamburger -->
+      <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
+      <!-- Mobile Dropdown -->
       <div class="mobile-menu" id="mobileMenu">
         <div class="mobile-menu-email" id="mobileEmail"></div>
-        <div id="mobileAdminBadge" style="display:none;padding:4px 12px 8px">
-          <span class="badge-admin" style="display:inline-flex">Admin</span>
-        </div>
-        <button class="menu-item" id="mobileBulkBtn" style="display:none" onclick="openBulkUpload(); closeMobileMenu()">⇈ Bulk Upload</button>
-        <button class="menu-item" id="mobileUploadBtn" style="display:none"
-          onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
-        <button class="menu-item" id="mobileAdminBtn"  style="display:none"
-          onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
-        <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">◑ Theme</button>
+        <div id="mobileAdminBadge" style="display:none; padding:4px 12px 8px;"><span class="badge-admin" style="display:inline-flex;">ADMIN</span></div>
+        <button class="menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
+        <button class="menu-item" id="mobileAdminBtn"  style="display:none" onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
+        <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
         <button class="menu-item danger" onclick="handleLogout()">Sign Out</button>
       </div>
     </div>
   </nav>
 
-  <!-- ── Library View ────────────────────────────── -->
+  <!-- Library View -->
   <div id="libraryView">
     <div class="container">
-
+      <!-- Header -->
       <div class="library-header">
         <h2 class="library-title">The <span>Collection</span></h2>
-        <p class="library-subtitle">Browse and read your saved books &amp; documents</p>
+        <p class="library-subtitle">Browse and read your saved books & documents</p>
       </div>
 
+      <!-- Controls -->
       <div class="controls-bar">
         <div class="search-wrap">
-          <span class="search-icon">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/>
-              <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <input type="text" id="searchInput" placeholder="Search by title or author…" oninput="renderBooks()">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search titles..." oninput="renderBooks()">
         </div>
-        <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" style="display:none" onclick="toggleBulkMode()">☑ Select</button>
         <div class="view-btns">
-          <button class="view-btn active" onclick="setView('grid', this)" title="Grid">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <rect x="1" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-              <rect x="8.5" y="1" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-              <rect x="1" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-              <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1.2" stroke="currentColor" stroke-width="1.4"/>
-            </svg>
-          </button>
-          <button class="view-btn" onclick="setView('list', this)" title="List">
-            <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <path d="M1 3h13M1 7.5h13M1 12h13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </button>
+          <button class="view-btn active" onclick="setView('grid', this)" title="Grid view">⊞</button>
+          <button class="view-btn" onclick="setView('list', this)" title="List view">≡</button>
         </div>
       </div>
 
+      <!-- Stats -->
       <div class="stats-bar">
-        <div class="stat-item">
-          <span class="stat-num" id="statTotal">0</span>
-          <span class="stat-label">Total</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num" id="statPDF">0</span>
-          <span class="stat-label">PDFs</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num" id="statEPUB">0</span>
-          <span class="stat-label">EPUBs</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-num" id="statOther">0</span>
-          <span class="stat-label">Other</span>
-        </div>
+        <div class="stat-item"><span class="stat-num" id="statTotal">0</span><span class="stat-label">Books</span></div>
+        <div class="stat-item"><span class="stat-num" id="statPDF">0</span><span class="stat-label">PDFs</span></div>
+        <div class="stat-item"><span class="stat-num" id="statEPUB">0</span><span class="stat-label">EPUBs</span></div>
+        <div class="stat-item"><span class="stat-num" id="statOther">0</span><span class="stat-label">Other</span></div>
       </div>
 
+      <!-- Filter Tabs -->
       <div class="filter-tabs">
-        <button class="filter-tab active" onclick="setFilter('all',this)">All</button>
-        <button class="filter-tab" onclick="setFilter('pdf',this)">PDF</button>
-        <button class="filter-tab" onclick="setFilter('epub',this)">EPUB</button>
-        <button class="filter-tab" onclick="setFilter('other',this)">Other</button>
-        <button class="filter-tab" onclick="setFilter('folders',this)">Folders</button>
+        <button class="filter-tab active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
+        <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
+        <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
+        <button class="filter-tab" onclick="setFilter('folders', this)">📁 Folders</button>
       </div>
 
+      <!-- Folder Chips (shown when Folders tab active) -->
       <div class="folder-chips-bar" id="folderChipsBar"></div>
 
-      <!-- Bulk Toolbar -->
-      <div class="bulk-toolbar" id="bulkToolbar" style="display:none">
-        <span class="bulk-count" id="bulkCount">0 selected</span>
-        <button class="btn btn-sm btn-ghost" onclick="toggleSelectAll()">Select All</button>
-        <button class="btn btn-sm btn-amber-outline" id="bulkMoveBtn" onclick="bulkMove()" disabled>Move To…</button>
-        <button class="btn btn-sm btn-danger" id="bulkDeleteBtn" onclick="bulkDelete()" disabled>🗑 Delete</button>
-        <div style="flex:1"></div>
-      </div>
+      <!-- Books -->
+      <div id="booksGrid" class="books-grid"></div>
+      <div id="booksListView" class="books-list" style="display:none;"></div>
 
-      <div id="booksGrid"     class="books-grid"></div>
-      <div id="booksListView" class="books-list" style="display:none"></div>
-
+      <!-- Empty State -->
       <div id="emptyState">
         <div class="empty-icon">📭</div>
-        <div class="empty-title">Nothing here yet</div>
-        <div class="empty-sub" id="emptyMsg">Upload your first book to begin.</div>
+        <div class="empty-title">No books found</div>
+        <div class="empty-sub" id="emptyMsg">Upload your first book to get started.</div>
       </div>
-
     </div>
   </div>
 
-  <!-- ── Reader View ──────────────────────────────── -->
-  <div id="readerView" style="display:none">
-
+  <!-- Reader View -->
+  <div id="readerView" style="display:none;">
+    <!-- Desktop Toolbar -->
     <div class="reader-toolbar">
-      <button class="btn btn-ghost btn-sm" onclick="closeReader()">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M9 1L3 7l6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Back
-      </button>
+      <button class="btn btn-ghost btn-sm" onclick="closeReader()">← Back</button>
       <div class="reader-book-title" id="readerBookTitle"></div>
       <div class="reader-controls">
-        <button class="btn btn-ghost btn-sm" id="prevDesktop" onclick="changePage(-1)" disabled>‹</button>
+        <button class="btn btn-ghost btn-sm" id="prevDesktop" onclick="changePage(-1)" disabled>◀</button>
         <span class="page-info" id="pageInfoDesktop">1 / 1</span>
-        <button class="btn btn-ghost btn-sm" id="nextDesktop" onclick="changePage(1)"  disabled>›</button>
+        <button class="btn btn-ghost btn-sm" id="nextDesktop" onclick="changePage(1)" disabled>▶</button>
         <button class="btn btn-ghost btn-sm" onclick="changeZoom(-0.15)">−</button>
         <button class="btn btn-ghost btn-sm" onclick="changeZoom(0.15)">+</button>
-        <a class="btn btn-ghost btn-sm reader-download-btn" href="#" target="_blank">↓ Save</a>
+        <a class="btn btn-ghost btn-sm reader-download-btn" href="#" target="_blank">⬇ Download</a>
       </div>
     </div>
 
+    <!-- Reader Body -->
     <div class="reader-body" id="readerBody">
       <div class="reader-loading" id="readerLoading">
-        <div class="spinner"></div>
-        <span>Opening…</span>
+        <div class="spinner"></div><p>Loading...</p>
       </div>
       <canvas id="pdfCanvas"></canvas>
       <div id="epubContainer"></div>
     </div>
 
+    <!-- Mobile Bottom Bar -->
     <div class="mobile-reader-bar">
       <button class="mob-btn" onclick="closeReader()">✕</button>
-      <button class="mob-btn mob-btn-nav" id="prevMobile" onclick="changePage(-1)" disabled>‹ Prev</button>
+      <button class="mob-btn mob-btn-nav" id="prevMobile" onclick="changePage(-1)" disabled>◀</button>
+      <button class="mob-btn mob-btn-zoom" onclick="changeZoom(-0.2)">−</button>
       <span class="mob-page" id="pageInfoMobile">1/1</span>
-      <button class="mob-btn mob-btn-nav" id="nextMobile" onclick="changePage(1)"  disabled>Next ›</button>
-      <a class="mob-btn reader-download-btn" href="#" target="_blank">↓</a>
+      <button class="mob-btn mob-btn-zoom" onclick="changeZoom(0.2)">+</button>
+      <button class="mob-btn mob-btn-nav" id="nextMobile" onclick="changePage(1)" disabled>▶</button>
+      <a class="mob-btn reader-download-btn" href="#" target="_blank">⬇</a>
     </div>
-
   </div>
 
 </div><!-- /#appPage -->
 
-
-<!-- ══════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      UPLOAD MODAL
-═══════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <div class="upload-modal-overlay" id="uploadModal">
   <div class="upload-modal">
     <div class="upload-modal-header">
-      <div class="upload-modal-title">Add a Book</div>
-      <button class="modal-close" onclick="closeUploadModal()">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <div class="upload-modal-title">Upload Book</div>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
     </div>
-
+    <!-- Dropzone -->
     <div class="dropzone" id="dropzone"
       ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)"
       onclick="document.getElementById('fileInput').click()">
-      <div class="dropzone-icon">📂</div>
-      <div class="dropzone-text">Drop a file here, or click to browse</div>
-      <div class="dropzone-sub">PDF · EPUB · TXT · DOC · DOCX &nbsp;·&nbsp; Max 50 MB</div>
+      <div class="dropzone-icon">📄</div>
+      <div class="dropzone-text">Drop file here or click to browse</div>
+      <div class="dropzone-sub">Supports PDF, EPUB, TXT, DOC, DOCX (max 50MB)</div>
     </div>
-    <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx"
-      style="display:none" onchange="handleFileSelect(event)">
-
-    <div id="fileChosen" class="file-chosen" style="display:none;margin-bottom:12px"></div>
-
+    <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
+    <div id="fileChosen" class="file-chosen" style="display:none;margin-bottom:12px;"></div>
+    <!-- Fields -->
     <div class="form-group">
       <label class="form-label">Title *</label>
-      <input type="text" id="bookTitle" placeholder="Book or document title">
+      <input type="text" id="bookTitle" placeholder="Book title">
     </div>
     <div class="form-group">
       <label class="form-label">Author</label>
-      <input type="text" id="bookAuthor" placeholder="Author (optional)">
+      <input type="text" id="bookAuthor" placeholder="Author name (optional)">
     </div>
     <div class="form-group">
       <label class="form-label">Folder</label>
       <select id="bookFolder" onchange="onFolderChange(this)"></select>
-      <input type="text" id="uploadNewFolderInput" placeholder="New folder name…"
-        style="display:none;margin-top:8px">
+      <input type="text" id="newFolderName" placeholder="New folder name..." style="display:none; margin-top:8px;">
     </div>
-
-    <div id="uploadProgress" style="display:none" class="progress-wrap">
+    <!-- Progress -->
+    <div id="uploadProgress" style="display:none;" class="progress-wrap">
       <div class="progress-info">
-        <span id="progressText">Uploading…</span>
+        <span id="progressText">Uploading...</span>
         <span id="progressPercent">0%</span>
       </div>
-      <div class="progress-bar-outer">
-        <div class="progress-bar-inner" id="progressBar"></div>
-      </div>
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar"></div></div>
     </div>
-
-    <div style="display:flex;gap:10px;margin-top:18px">
+    <div style="display:flex; gap:10px; margin-top:16px;">
       <button class="btn btn-ghost" onclick="closeUploadModal()">Cancel</button>
-      <button class="btn btn-primary" id="uploadSubmitBtn" onclick="uploadBook()" style="flex:1">Upload</button>
+      <button class="btn btn-primary" id="uploadSubmitBtn" onclick="uploadBook()" style="flex:1;">Upload</button>
     </div>
   </div>
 </div>
 
-
-<!-- ══════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      DELETE MODAL
-═══════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <div class="modal-overlay" id="deleteModal">
   <div class="modal">
-    <div class="modal-title">Delete Book?</div>
-    <div class="modal-body">
-      You are about to permanently remove <strong id="deleteBookTitle"></strong>.
-      This action cannot be undone.
-    </div>
+    <div class="modal-title">Delete Book</div>
+    <div class="modal-body">Are you sure you want to delete <strong id="deleteBookTitle"></strong>? This cannot be undone.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
       <button class="btn btn-danger" onclick="executeDelete()">Delete</button>
@@ -294,38 +218,22 @@
   </div>
 </div>
 
-
-<!-- ══════════════════════════════════════════════════
+<!-- ══════════════════════════════════════════════════════════
      ADMIN PANEL
-═══════════════════════════════════════════════════ -->
+══════════════════════════════════════════════════════════ -->
 <div class="admin-overlay" id="adminPanel">
   <div class="admin-panel">
     <div class="admin-header">
-      <h2>Admin Panel</h2>
-      <button class="modal-close" onclick="closeAdminPanel()">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
-      </button>
+      <h2>⚙ Admin Panel</h2>
+      <button class="modal-close" onclick="closeAdminPanel()">✕</button>
     </div>
-
     <div class="admin-tabs">
-      <button class="admin-tab-btn active" onclick="showAdminTab('dashboard',this)" data-tab="dashboard">📊 Dashboard</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('users',this)" data-tab="users">👥 Users <span class="tab-count" id="userCountBadge"></span></button>
-      <button class="admin-tab-btn" onclick="showAdminTab('folders',this)" data-tab="folders">📁 Folders <span class="tab-count" id="folderCountBadge"></span></button>
-      <button class="admin-tab-btn" onclick="showAdminTab('activity',this)" data-tab="activity">📋 Log</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('settings',this)" data-tab="settings">⚙ Settings</button>
+      <button class="admin-tab-btn active" onclick="showAdminTab('users')">👥 Users</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('folders')">📁 Folders</button>
     </div>
-
     <div class="admin-content">
-
-      <!-- Dashboard Pane -->
-      <div id="adminPane_dashboard">
-        <div id="dashboardContent"></div>
-      </div>
-
       <!-- Users Pane -->
-      <div id="adminPane_users" style="display:none">
+      <div id="adminPane_users">
         <div class="admin-section">
           <h4>Add New Admin</h4>
           <div class="add-row">
@@ -333,127 +241,21 @@
             <button class="btn btn-primary btn-sm" onclick="addAdmin()">Add</button>
           </div>
         </div>
-        <div class="admin-section">
-          <h4>Invite User</h4>
-          <div class="add-row">
-            <input type="email" id="inviteEmailInput" placeholder="user@email.com">
-            <button class="btn btn-ghost btn-sm" onclick="sendInvite()">📧 Invite</button>
-          </div>
-          <div id="invitesList"></div>
-        </div>
-        <div class="admin-section-label">All Users</div>
-        <div class="user-search-wrap">
-          <input type="text" id="userSearchInput" class="user-search-input" placeholder="Filter by email…" oninput="filterUsers(this.value)">
-        </div>
+        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Users</h4>
         <div id="usersList"></div>
       </div>
-
       <!-- Folders Pane -->
-      <div id="adminPane_folders" style="display:none">
+      <div id="adminPane_folders" style="display:none;">
         <div class="admin-section">
           <h4>Create New Folder</h4>
           <div class="add-row">
-            <input type="text" id="adminNewFolderInput" placeholder="Folder name…">
+            <input type="text" id="newFolderInput" placeholder="Folder name...">
             <button class="btn btn-primary btn-sm" onclick="createFolder()">Create</button>
           </div>
         </div>
-        <div class="admin-section-label">All Folders</div>
+        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Folders</h4>
         <div id="foldersList"></div>
       </div>
-
-      <!-- Activity Log Pane -->
-      <div id="adminPane_activity" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div class="admin-section-label" style="margin:0">Recent Activity (last 50)</div>
-          <button class="btn btn-sm btn-danger" onclick="clearActivityLog()">Clear Log</button>
-        </div>
-        <div id="activityList"></div>
-      </div>
-
-      <!-- Settings Pane -->
-      <div id="adminPane_settings" style="display:none">
-        <div class="admin-section">
-          <h4>App Appearance</h4>
-          <div class="form-group"><label class="form-label">App Name</label><input type="text" id="settingAppName" placeholder="My Library"></div>
-          <div class="form-group"><label class="form-label">Subtitle</label><input type="text" id="settingAppSubtitle" placeholder="Your personal digital collection"></div>
-        </div>
-        <div class="admin-section">
-          <h4>Upload Settings</h4>
-          <div class="form-group"><label class="form-label">Max Upload Size (MB)</label><input type="number" id="settingMaxUploadMB" min="1" max="100" value="50"></div>
-        </div>
-        <div class="admin-section">
-          <h4>Permissions</h4>
-          <label class="settings-toggle"><input type="checkbox" id="settingAllowSignup" checked> Allow new user sign-ups</label>
-          <label class="settings-toggle"><input type="checkbox" id="settingAllowDownload" checked> Allow users to download books</label>
-        </div>
-        <div class="admin-section">
-          <h4>Export &amp; Backup</h4>
-          <p class="muted" style="margin-bottom:12px;font-size:.8rem">Download all library data as a backup file.</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button id="exportBtn" class="btn btn-ghost btn-sm" onclick="exportData('json')">⬇ Export JSON</button>
-            <button class="btn btn-ghost btn-sm" onclick="exportData('csv')">⬇ Export CSV</button>
-          </div>
-        </div>
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
-        </div>
-        <div class="admin-section">
-          <h4>Fix Missing Covers</h4>
-          <p class="muted" style="margin-bottom:12px;font-size:.8rem">Scan all PDF books and generate thumbnails for those missing covers.</p>
-          <button class="btn btn-ghost btn-sm" id="fixCoversBtn" onclick="generateMissingCovers()">🖼 Generate Missing Covers</button>
-          <div id="fixCoversStatus" style="margin-top:8px;font-size:.8rem;color:var(--cream3)"></div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-
-<!-- ══════════════════════════════════════════════════
-     BULK UPLOAD MODAL
-═══════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="bulkModal">
-  <div class="modal" style="max-width:560px;max-height:88vh;overflow-y:auto">
-    <div class="upload-modal-header">
-      <div class="upload-modal-title">Bulk Upload</div>
-      <button class="modal-close" onclick="closeBulkModal()">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      </button>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Folder</label>
-      <select id="bulkFolder"></select>
-    </div>
-    <div class="dropzone" onclick="document.getElementById('bulkFileInput').click()" style="padding:24px">
-      <div class="dropzone-icon">📂</div>
-      <div class="dropzone-text">Click to select multiple files</div>
-      <div class="dropzone-sub">PDF · EPUB · TXT · DOC · DOCX · Max 50MB each</div>
-    </div>
-    <input type="file" id="bulkFileInput" multiple accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleBulkFileSelect(event)">
-    <div id="bulkFileList" style="max-height:240px;overflow-y:auto;margin:12px 0"></div>
-    <div id="bulkProgressWrap" style="display:none;margin-bottom:12px">
-      <div class="progress-info"><span id="bulkProgressText">Uploading…</span></div>
-      <div class="progress-bar-outer"><div class="progress-bar-inner" id="bulkProgressBar"></div></div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn btn-ghost" onclick="closeBulkModal()">Cancel</button>
-      <button class="btn btn-primary" id="bulkSubmitBtn" onclick="startBulkUpload()" style="flex:1">Upload Files</button>
-    </div>
-  </div>
-</div>
-
-<!-- Bulk Move Overlay -->
-<div class="modal-overlay" id="bulkMoveOverlay" style="display:none">
-  <div class="modal" style="max-width:380px">
-    <div class="modal-title">Move Selected Books</div>
-    <div class="form-group">
-      <label class="form-label">Move to Folder</label>
-      <select id="bulkFolderSelect"></select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeBulkMove()">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmBulkMove()">Move</button>
     </div>
   </div>
 </div>
@@ -461,18 +263,29 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- ── Scripts ───────────────────────────────────────────── -->
+<!-- ── Scripts ────────────────────────────────────────────────── -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="js/firebase-config.js"></script>
+<script src="js/gdrive.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/library.js"></script>
 <script src="js/upload.js"></script>
 <script src="js/reader.js"></script>
 <script src="js/admin.js"></script>
 
+<script>
+// Sync mobile email on login
+const _origShowApp = window.showApp;
+window.showApp = function() {
+  _origShowApp();
+  const mEmail = document.getElementById('mobileEmail');
+  if (mEmail && currentUser) mEmail.textContent = currentUser.email;
+};
+</script>
 </body>
 </html>
