@@ -22,6 +22,16 @@ applyTheme();
 
 auth.onAuthStateChanged(async (user) => {
   if (user) {
+    if (!user.emailVerified) {
+      // Not verified — sign out and show message
+      await auth.signOut();
+      const err = document.getElementById('authError');
+      if (err) {
+        err.style.color = 'var(--danger)';
+        err.textContent = '⚠️ Please verify your email first. Check your inbox.';
+      }
+      return;
+    }
     currentUser = user;
     await loadUserRole(user.uid, user.email);
     showApp();
@@ -42,30 +52,23 @@ async function loadUserRole(uid, email) {
 
 function showLogin() {
   document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('appPage').style.display   = 'none';
+  document.getElementById('appPage').style.display = 'none';
 }
 
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('appPage').style.display   = 'block';
-
-  // Sync email display — desktop and mobile
-  const emailEl   = document.getElementById('navEmail');
-  const mEmailEl  = document.getElementById('mobileEmail');
-  if (emailEl  && currentUser) emailEl.textContent  = currentUser.email;
-  if (mEmailEl && currentUser) mEmailEl.textContent = currentUser.email;
-
+  document.getElementById('appPage').style.display = 'block';
+  const emailEl = document.getElementById('navEmail');
+  if (emailEl) emailEl.textContent = currentUser.email;
   if (currentRole === 'admin') {
-    ['navAdminBadge','navUploadBtn','navAdminBtn','navBulkBtn'].forEach(id => {
+    ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'inline-flex';
     });
-    ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn','mobileBulkBtn'].forEach(id => {
+    ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
     });
-    const btBtn = document.getElementById('bulkToggleBtn');
-    if (btBtn) btBtn.style.display = 'inline-flex';
   }
   loadBooks();
 }
@@ -89,10 +92,16 @@ async function handleSignUp() {
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    // Send verification email
+    await cred.user.sendEmailVerification();
     await db.collection('users').doc(cred.user.uid).set({
       email, role: 'user',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
+    // Sign out until verified
+    await auth.signOut();
+    err.style.color = 'var(--success)';
+    err.textContent = '✅ Account created! Check your email to verify before logging in.';
   } catch(e) { err.textContent = getAuthError(e.code); }
 }
 
@@ -103,13 +112,12 @@ async function handleLogout() {
 
 function getAuthError(code) {
   const map = {
-    'auth/user-not-found':     'No account found with this email.',
-    'auth/wrong-password':     'Incorrect password.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password.',
     'auth/email-already-in-use': 'Email already registered.',
-    'auth/invalid-email':      'Invalid email address.',
-    'auth/weak-password':      'Password is too weak.',
-    'auth/too-many-requests':  'Too many attempts. Try again later.',
-    'auth/invalid-credential': 'Invalid email or password.',
+    'auth/invalid-email': 'Invalid email address.',
+    'auth/weak-password': 'Password is too weak.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
