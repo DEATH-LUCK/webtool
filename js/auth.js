@@ -4,6 +4,7 @@
 let currentUser = null;
 let currentRole = 'user';
 
+// ── Theme ─────────────────────────────────────────────────────
 function applyTheme() {
   if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light-mode');
@@ -20,24 +21,41 @@ function toggleTheme() {
 }
 applyTheme();
 
+// ── Check Email Link on Page Load ─────────────────────────────
+window.addEventListener('load', async () => {
+  if (auth.isSignInWithEmailLink(window.location.href)) {
+    let email = localStorage.getItem('adminEmailForSignIn');
+    if (!email) {
+      email = window.prompt('Please enter your email to confirm:');
+    }
+    try {
+      const result = await auth.signInWithEmailLink(email, window.location.href);
+      localStorage.removeItem('adminEmailForSignIn');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch(e) {
+      console.error('Email link sign-in error:', e);
+    }
+  }
+});
+
+// ── Auth State ────────────────────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
   if (user) {
-    // Check if user exists in Firestore (existing user) or is new
     let doc = await db.collection('users').doc(user.uid).get();
-    const isExistingUser = doc.exists;
+    const isAdmin   = doc.exists && doc.data().role === 'admin';
+    const isPending = doc.exists && doc.data().status === 'pending';
 
-    const isAdmin = doc.exists && doc.data().role === 'admin';
-
-    if (!user.emailVerified && !isExistingUser && !isAdmin) {
-      // Only block brand new unverified users — not existing or admin
+    // Block pending users
+    if (isPending && !isAdmin) {
       await auth.signOut();
       const err = document.getElementById('authError');
       if (err) {
         err.style.color = 'var(--danger)';
-        err.textContent = '⚠️ Please verify your email first. Check your inbox.';
+        err.textContent = '⏳ Your account is pending admin approval. Please wait.';
       }
       return;
     }
+
     currentUser = user;
     await loadUserRole(user.uid, user.email);
     showApp();
@@ -48,6 +66,7 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
+// ── Load Role ─────────────────────────────────────────────────
 async function loadUserRole(uid, email) {
   try {
     let doc = await db.collection('users').doc(uid).get();
@@ -56,16 +75,21 @@ async function loadUserRole(uid, email) {
   } catch(e) { currentRole = 'user'; }
 }
 
+// ── Show/Hide Pages ───────────────────────────────────────────
 function showLogin() {
   document.getElementById('loginPage').style.display = 'flex';
-  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('appPage').style.display   = 'none';
+  document.getElementById('loginFormSection').style.display = 'block';
+  document.getElementById('magicLinkSection').style.display = 'none';
 }
 
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('appPage').style.display = 'block';
+  document.getElementById('appPage').style.display   = 'block';
   const emailEl = document.getElementById('navEmail');
   if (emailEl) emailEl.textContent = currentUser.email;
+  const mEmail = document.getElementById('mobileEmail');
+  if (mEmail) mEmail.textContent = currentUser.email;
   if (currentRole === 'admin') {
     ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
       const el = document.getElementById(id);
@@ -79,16 +103,47 @@ function showApp() {
   loadBooks();
 }
 
+// ── Sign In (Password) ────────────────────────────────────────
 async function handleSignIn() {
   const email = document.getElementById('emailInput').value.trim();
   const pass  = document.getElementById('passwordInput').value;
   const err   = document.getElementById('authError');
   err.textContent = '';
   if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
-  try { await auth.signInWithEmailAndPassword(email, pass); }
-  catch(e) { err.textContent = getAuthError(e.code); }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) { err.textContent = getAuthError(e.code); }
 }
 
+// ── Admin Magic Link ──────────────────────────────────────────
+async function sendAdminMagicLink() {
+  const email = document.getElementById('emailInput').value.trim();
+  const err   = document.getElementById('authError');
+  err.textContent = '';
+  if (!email) { err.textContent = 'Please enter your admin email first.'; return; }
+
+  // Check if admin
+  const snap = await db.collection('users').where('email', '==', email).get();
+  let isAdmin = false;
+  snap.forEach(doc => { if (doc.data().role === 'admin') isAdmin = true; });
+  if (!isAdmin) { err.textContent = 'This email is not an admin account.'; return; }
+
+  try {
+    const actionCodeSettings = {
+      url: 'https://death-luck.github.io/webtool/',
+      handleCodeInApp: true,
+    };
+    await auth.sendSignInLinkToEmail(email, actionCodeSettings);
+    localStorage.setItem('adminEmailForSignIn', email);
+    document.getElementById('loginFormSection').style.display = 'none';
+    document.getElementById('magicLinkSection').style.display = 'block';
+    document.getElementById('magicLinkEmail').textContent = email;
+  } catch(e) {
+    err.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── Sign Up ───────────────────────────────────────────────────
 async function handleSignUp() {
   const email = document.getElementById('emailInput').value.trim();
   const pass  = document.getElementById('passwordInput').value;
@@ -98,16 +153,13 @@ async function handleSignUp() {
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
-    // Send verification email
-    await cred.user.sendEmailVerification();
     await db.collection('users').doc(cred.user.uid).set({
-      email, role: 'user',
+      email, role: 'user', status: 'pending',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Sign out until verified
     await auth.signOut();
-    err.style.color = 'var(--success)';
-    err.textContent = '✅ Account created! Check your email to verify before logging in.';
+    err.style.color   = 'var(--success)';
+    err.textContent   = '✅ Account created! Wait for admin approval.';
   } catch(e) { err.textContent = getAuthError(e.code); }
 }
 
@@ -118,22 +170,19 @@ async function handleLogout() {
 
 function getAuthError(code) {
   const map = {
-    'auth/user-not-found': 'No account found with this email.',
-    'auth/wrong-password': 'Incorrect password.',
+    'auth/user-not-found':       'No account found with this email.',
+    'auth/wrong-password':       'Incorrect password.',
     'auth/email-already-in-use': 'Email already registered.',
-    'auth/invalid-email': 'Invalid email address.',
-    'auth/weak-password': 'Password is too weak.',
-    'auth/too-many-requests': 'Too many attempts. Try again later.',
+    'auth/invalid-email':        'Invalid email address.',
+    'auth/weak-password':        'Password is too weak.',
+    'auth/too-many-requests':    'Too many attempts. Try again later.',
   };
   return map[code] || 'Something went wrong. Please try again.';
 }
 
-function toggleMobileMenu() {
-  document.getElementById('mobileMenu').classList.toggle('open');
-}
-function closeMobileMenu() {
-  document.getElementById('mobileMenu').classList.remove('open');
-}
+// ── Mobile Menu ───────────────────────────────────────────────
+function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
+function closeMobileMenu()  { document.getElementById('mobileMenu').classList.remove('open'); }
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('mobileMenu');
   const btn  = document.getElementById('hamburgerBtn');
