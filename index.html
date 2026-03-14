@@ -13,22 +13,43 @@
 ══════════════════════════════════════════════════════════ -->
 <div id="loginPage">
   <div class="login-box">
-    <div class="login-logo">📚 My Library</div>
-    <div class="login-subtitle">Your personal digital collection</div>
-    <div class="form-group">
-      <label class="form-label">Email</label>
-      <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
+    <!-- Login Form -->
+    <div id="loginFormSection">
+      <div class="login-logo">📚 My Library</div>
+      <div class="login-subtitle">Your personal digital collection</div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" id="emailInput" placeholder="you@example.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') handleSignIn()">
+      </div>
+      <div class="auth-buttons">
+        <button class="btn btn-primary" onclick="handleSignIn()">Sign In</button>
+        <button class="btn btn-ghost" onclick="handleSignUp()">Create Account</button>
+      </div>
+      <div style="margin-top:12px;text-align:center;">
+        <button class="btn btn-ghost btn-sm" onclick="sendAdminMagicLink()" style="width:100%;color:var(--amber);border-color:var(--amber);">
+          🔐 Admin? Login with Email Link
+        </button>
+      </div>
+      <div class="auth-error" id="authError"></div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Password</label>
-      <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password"
-        onkeydown="if(event.key==='Enter') handleSignIn()">
+
+    <!-- Magic Link Sent -->
+    <div id="magicLinkSection" style="display:none;text-align:center;">
+      <div style="font-size:3rem;margin-bottom:16px;">📧</div>
+      <div class="login-logo">Check Your Email!</div>
+      <div class="login-subtitle" style="margin-bottom:16px;">
+        Login link sent to<br><strong id="magicLinkEmail" style="color:var(--amber);"></strong>
+      </div>
+      <p style="color:var(--text2);font-size:0.85rem;margin-bottom:20px;">
+        Click the link in your email to login securely.<br>Link expires in 10 minutes.
+      </p>
+      <button class="btn btn-ghost btn-sm" onclick="showLogin()">← Back to Login</button>
     </div>
-    <div class="auth-buttons">
-      <button class="btn btn-primary" onclick="handleSignIn()">Sign In</button>
-      <button class="btn btn-ghost" onclick="handleSignUp()">Create Account</button>
-    </div>
-    <div class="auth-error" id="authError"></div>
   </div>
 </div>
 
