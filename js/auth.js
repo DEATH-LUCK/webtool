@@ -69,10 +69,23 @@ auth.onAuthStateChanged(async (user) => {
 // ── Load Role ─────────────────────────────────────────────────
 async function loadUserRole(uid, email) {
   try {
+    // Try by UID first
     let doc = await db.collection('users').doc(uid).get();
-    if (!doc.exists) doc = await db.collection('users').doc(email).get();
-    currentRole = doc.exists ? (doc.data().role || 'user') : 'user';
-  } catch(e) { currentRole = 'user'; }
+    // Try by email if not found
+    if (!doc.exists && email) {
+      const snap = await db.collection('users').where('email','==',email).get();
+      if (!snap.empty) doc = snap.docs[0];
+    }
+    if (doc && doc.exists) {
+      currentRole = doc.data().role || 'user';
+    } else {
+      currentRole = 'user';
+    }
+    console.log('Role loaded:', currentRole, 'for', email);
+  } catch(e) {
+    console.error('loadUserRole error:', e);
+    currentRole = 'user';
+  }
 }
 
 // ── Show/Hide Pages ───────────────────────────────────────────
@@ -86,10 +99,24 @@ function showLogin() {
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display   = 'block';
+
+  // Update email in navbar
   const emailEl = document.getElementById('navEmail');
   if (emailEl) emailEl.textContent = currentUser.email;
   const mEmail = document.getElementById('mobileEmail');
   if (mEmail) mEmail.textContent = currentUser.email;
+
+  // Hide all admin elements first
+  ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Show admin elements if admin
   if (currentRole === 'admin') {
     ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
       const el = document.getElementById(id);
@@ -100,6 +127,7 @@ function showApp() {
       if (el) el.style.display = 'block';
     });
   }
+
   loadBooks();
 }
 
