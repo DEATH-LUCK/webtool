@@ -124,7 +124,7 @@ async function loadUsersPane() {
       } else if (isAdmin) {
         // Admin management — only superadmin can change other admins
         if (myPerms.superadmin) {
-          if (!isSuperAdmin) {
+          if (true) {  // superadmin can manage all other admins
             actions =
               '<button class="btn btn-ghost btn-sm" onclick="openPermissions(\'' + doc.id + '\',\'' + escapeHtml(email) + '\')">⚙️ Permissions</button>' +
               '<button class="btn btn-danger btn-sm" onclick="demoteAdmin(\'' + doc.id + '\')">⬇ User</button>';
@@ -194,7 +194,11 @@ async function promoteToAdmin(userId, email) {
 async function demoteAdmin(userId) {
   if (!confirm('Remove admin role from this user?')) return;
   try {
-    await db.collection('users').doc(userId).update({ role: 'user', permissions: {} });
+    await db.collection('users').doc(userId).update({ 
+      role: 'user', 
+      superadmin: false,
+      permissions: {} 
+    });
     showToast('Admin demoted to user.', 'success');
     loadUsersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
