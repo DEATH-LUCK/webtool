@@ -1,6 +1,7 @@
 // ============================================================
 // ADMIN.JS — Admin Panel
 // ============================================================
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -9,18 +10,18 @@ function escapeHtml(str) {
 function openAdminPanel() {
   if (currentRole !== 'admin') return;
   document.getElementById('adminPanel').classList.add('open');
-  showAdminTab('users');
+  loadUsersPane();
 }
 function closeAdminPanel() {
   document.getElementById('adminPanel').classList.remove('open');
 }
 
-function showAdminTab(tab) {
+function showAdminTab(tab, btn) {
   document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.admin-tab-pane').forEach(p => p.style.display = 'none');
   document.getElementById('adminPane_' + tab).style.display = 'block';
-  event.target.classList.add('active');
-  if (tab === 'users') loadUsersPane();
+  if (btn) btn.classList.add('active');
+  if (tab === 'users')   loadUsersPane();
   if (tab === 'folders') loadFoldersPane();
 }
 
@@ -32,36 +33,79 @@ async function loadUsersPane() {
     const snap = await db.collection('users').get();
     if (snap.empty) { el.innerHTML = '<p class="muted">No users found.</p>'; return; }
     el.innerHTML = '';
-    snap.docs.forEach(doc => {
-      const data = doc.data();
-      const isAdmin = data.role === 'admin';
-      const isSelf  = doc.id === currentUser.uid || doc.id === currentUser.email;
+
+    // Sort: pending first
+    const docs = snap.docs.sort((a, b) => {
+      const aPending = a.data().status === 'pending' ? 0 : 1;
+      const bPending = b.data().status === 'pending' ? 0 : 1;
+      return aPending - bPending;
+    });
+
+    docs.forEach(doc => {
+      const data      = doc.data();
+      const isAdmin   = data.role === 'admin';
+      const isPending = data.status === 'pending';
+      const isSelf    = doc.id === currentUser.uid;
+      const email     = data.email || doc.id;
+
       const row = document.createElement('div');
       row.className = 'user-row';
+      if (isPending) row.style.cssText = 'border-color:var(--amber);background:rgba(232,164,53,0.05);';
+
+      let badgeHtml = '';
+      if (isPending)     badgeHtml = '<span style="color:var(--amber);font-size:0.75rem;">⏳ Pending Approval</span>';
+      else if (isAdmin)  badgeHtml = '<span style="color:var(--amber);font-size:0.75rem;">👑 Admin</span>';
+      else               badgeHtml = '<span style="color:var(--text2);font-size:0.75rem;">👤 User</span>';
+
+      let actionHtml = '';
+      if (isPending) {
+        actionHtml =
+          '<button class="btn btn-primary btn-sm" onclick="approveUser(\'' + doc.id + '\')">✅ Approve</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="rejectUser(\'' + doc.id + '\')">✕</button>';
+      } else if (isSelf) {
+        actionHtml = '<span class="muted" style="font-size:0.75rem;">You</span>';
+      } else {
+        actionHtml =
+          '<button class="btn btn-ghost btn-sm" onclick="toggleRole(\'' + doc.id + '\',' + isAdmin + ')">' +
+          (isAdmin ? '⬇ Make User' : '⬆ Make Admin') + '</button>';
+      }
+
       row.innerHTML =
         '<div class="user-info">' +
-          '<div class="user-email">' + doc.id + '</div>' +
-          '<div class="user-badge ' + (isAdmin ? 'badge-admin' : 'badge-user') + '">' +
-            (isAdmin ? '👑 Admin' : '👤 User') +
-          '</div>' +
+          '<div class="user-email">' + escapeHtml(email) + '</div>' +
+          badgeHtml +
         '</div>' +
-        '<div>' +
-          (!isSelf
-            ? '<button class="btn btn-ghost btn-sm" onclick="toggleRole(\'' + doc.id + '\',' + isAdmin + ')">' +
-              (isAdmin ? '⬇ Make User' : '⬆ Make Admin') + '</button>'
-            : '<span class="muted" style="font-size:0.75rem">You</span>') +
-        '</div>';
+        '<div style="display:flex;gap:6px;align-items:center;">' + actionHtml + '</div>';
+
       el.appendChild(row);
     });
+
   } catch(e) {
     el.innerHTML = '<p style="color:var(--danger)">Error: ' + e.message + '</p>';
   }
 }
 
+async function approveUser(userId) {
+  try {
+    await db.collection('users').doc(userId).update({ status: 'approved' });
+    showToast('✅ User approved!', 'success');
+    loadUsersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function rejectUser(userId) {
+  if (!confirm('Reject and delete this user?')) return;
+  try {
+    await db.collection('users').doc(userId).delete();
+    showToast('User rejected.', 'success');
+    loadUsersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
 async function toggleRole(userId, isAdmin) {
   try {
     await db.collection('users').doc(userId).update({ role: isAdmin ? 'user' : 'admin' });
-    showToast(userId + ' role updated!', 'success');
+    showToast('Role updated!', 'success');
     loadUsersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
@@ -73,13 +117,13 @@ async function addAdmin() {
     const snap = await db.collection('users').get();
     let found = false;
     for (const doc of snap.docs) {
-      if (doc.id === email || doc.data().email === email) {
-        await db.collection('users').doc(doc.id).update({ role: 'admin' });
+      if (doc.data().email === email || doc.id === email) {
+        await db.collection('users').doc(doc.id).update({ role: 'admin', status: 'approved' });
         found = true; break;
       }
     }
     if (!found) {
-      await db.collection('users').doc(email).set({ role: 'admin', email }, { merge: true });
+      await db.collection('users').doc(email).set({ role: 'admin', email, status: 'approved' }, { merge: true });
     }
     showToast(email + ' is now an admin!', 'success');
     document.getElementById('adminEmailInput').value = '';
@@ -98,11 +142,9 @@ async function loadFoldersPane() {
     ]);
 
     const folderMap = {};
-    // Add saved folders first
     fSnap.docs.forEach(doc => { if (!folderMap[doc.id]) folderMap[doc.id] = []; });
-    // Add books
     bSnap.docs.forEach(doc => {
-      const d = doc.data();
+      const d   = doc.data();
       const cat = d.category || 'General';
       if (!folderMap[cat]) folderMap[cat] = [];
       folderMap[cat].push({ id: doc.id, title: d.title || 'Untitled' });
@@ -117,7 +159,7 @@ async function loadFoldersPane() {
     }
 
     allFolderNames.forEach(folder => {
-      const books = folderMap[folder];
+      const books  = folderMap[folder];
       const safeId = 'fp_' + folder.replace(/[^a-z0-9]/gi, '_');
 
       const booksHtml = books.length === 0
@@ -127,7 +169,9 @@ async function loadFoldersPane() {
             '<span class="folder-book-title">📄 ' + escapeHtml(b.title) + '</span>' +
             '<select class="move-select" onchange="moveBook(\'' + b.id + '\',this.value,this)">' +
             '<option value="">Move to...</option>' +
-            allFolderNames.filter(f => f !== folder).map(f => '<option value="' + f + '">📁 ' + f + '</option>').join('') +
+            allFolderNames.filter(f => f !== folder).map(f =>
+              '<option value="' + escapeHtml(f) + '">📁 ' + escapeHtml(f) + '</option>'
+            ).join('') +
             '</select>' +
             '</div>'
           ).join('');
@@ -163,7 +207,7 @@ function togglePane(id) {
 
 async function createFolder() {
   const input = document.getElementById('newFolderInput');
-  const name = input?.value.trim();
+  const name  = input?.value.trim();
   if (!name) { showToast('Enter a folder name.', 'error'); return; }
   try {
     await db.collection('folders').doc(name).set({
@@ -194,7 +238,7 @@ async function deleteFolder(folder, count) {
   if (!confirm(msg)) return;
   try {
     if (count > 0) {
-      const snap = await db.collection('books').where('category', '==', folder).get();
+      const snap  = await db.collection('books').where('category', '==', folder).get();
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
       await batch.commit();
