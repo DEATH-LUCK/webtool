@@ -7,8 +7,15 @@ function escapeHtml(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function openAdminPanel() {
+async function openAdminPanel() {
   if (currentRole !== 'admin') return;
+  // Auto-set superadmin for magargangman@gmail.com
+  try {
+    const myDoc = await db.collection('users').doc(currentUser.uid).get();
+    if (myDoc.exists && !myDoc.data().superadmin && currentUser.email === 'magargangman@gmail.com') {
+      await db.collection('users').doc(currentUser.uid).update({ superadmin: true });
+    }
+  } catch(e) {}
   document.getElementById('adminPanel').classList.add('open');
   showAdminTab('users', document.querySelector('.admin-tab-btn'));
 }
