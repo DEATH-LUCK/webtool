@@ -225,6 +225,19 @@ body.light-mode .navbar{background:rgba(250,246,238,.93)}
 .auth-buttons .btn{flex:1;justify-content:center;padding:11px}
 .auth-error{color:var(--red);font-size:.78rem;margin-top:12px;min-height:18px;line-height:1.4}
 
+/* ─── Auth Tabs ──────────────────────────────────────────────── */
+.auth-tabs{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:12px}
+.tab-btn{
+  flex:1;background:var(--ink3);border:none;color:var(--cream3);
+  padding:10px 16px;font-size:.85rem;font-weight:500;
+  transition:all .18s var(--spring);cursor:pointer;
+}
+.tab-btn.active{background:var(--amber);color:#0c0b09;border-color:var(--amber)}
+.tab-btn:hover:not(.active){background:var(--ink4);color:var(--cream)}
+.auth-note{color:var(--cream3);font-size:.78rem;margin-bottom:16px;text-align:center;line-height:1.4}
+.tab-content{display:none}
+.tab-content:first-of-type{display:block}
+
 /* ─── App Page ───────────────────────────────────────────────── */
 #appPage{display:none}
 
@@ -507,6 +520,14 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
   border-radius:var(--r2);padding:16px 18px;margin-bottom:18px;
 }
 .admin-section h4{font-size:.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--cream2)}
+.admin-panel-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+.admin-panel-top h4{margin:0;font-size:1rem;color:var(--cream);}
+.admin-users-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.admin-users-toolbar input,
+.admin-users-toolbar select{flex:1;min-width:140px;background:var(--ink4);border:1px solid var(--line);color:var(--cream);padding:10px 12px;border-radius:var(--r2)}
+.admin-user-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px}
+.admin-user-stats .stat-card{background:var(--ink4);border:1px solid var(--line);border-radius:12px;padding:12px;}
+.admin-user-stats .stat-card strong{display:block;font-size:1rem;margin-top:4px}
 .add-row{display:flex;gap:8px}
 .add-row input{flex:1}
 
