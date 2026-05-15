@@ -34,6 +34,11 @@ window.addEventListener('load', async () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     } catch(e) {
       console.error('Email link sign-in error:', e);
+      const err = document.getElementById('authError');
+      if (err) {
+        err.textContent = getAuthError(e.code) || 'Something went wrong with email link sign-in. Please try again.';
+        showLogin();
+      }
     }
   }
 });
@@ -94,6 +99,7 @@ function showLogin() {
   document.getElementById('appPage').style.display   = 'none';
   document.getElementById('loginFormSection').style.display = 'block';
   document.getElementById('magicLinkSection').style.display = 'none';
+  switchTab('signIn', document.querySelector('.tab-btn'));
 }
 
 function showApp() {
@@ -133,48 +139,85 @@ function showApp() {
 
 // ── Sign In (Password) ────────────────────────────────────────
 async function handleSignIn() {
-  const email = document.getElementById('emailInput').value.trim();
-  const pass  = document.getElementById('passwordInput').value;
+  const email = document.getElementById('signInEmail').value.trim();
+  const pass  = document.getElementById('signInPassword').value;
   const err   = document.getElementById('authError');
+  err.style.color = 'var(--cream)';
   err.textContent = '';
-  if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
+  if (!email || !pass) { err.style.color = 'var(--red)'; err.textContent = 'Please enter email and password.'; return; }
+
+  try {
+    const snap = await db.collection('users').where('email', '==', email).get();
+    if (!snap.empty && snap.docs[0].data().role === 'admin') {
+      err.style.color = 'var(--red)';
+      err.textContent = 'This is an admin account. Use the Admin tab to login with your email link.';
+      return;
+    }
+  } catch(e) {
+    console.error('Admin check failed:', e);
+  }
+
   try {
     await auth.signInWithEmailAndPassword(email, pass);
-  } catch(e) { err.textContent = getAuthError(e.code); }
+  } catch(e) {
+    console.error('Sign-in error:', e);
+    const message = getAuthError(e.code) || e.message || 'Something went wrong. Please try again.';
+    err.style.color = 'var(--red)';
+    err.textContent = message;
+  }
+}
+
+// ── Forgot Password ───────────────────────────────────────────
+async function handleForgotPassword() {
+  const email = document.getElementById('signInEmail').value.trim();
+  const err   = document.getElementById('authError');
+  err.textContent = '';
+  if (!email) { err.textContent = 'Please enter your email first.'; return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    err.style.color = 'var(--success)';
+    err.textContent = '✅ Password reset email sent! Check your inbox.';
+  } catch(e) {
+    err.textContent = getAuthError(e.code);
+  }
 }
 
 // ── Admin Magic Link ──────────────────────────────────────────
 async function sendAdminMagicLink() {
-  const email = document.getElementById('emailInput').value.trim();
+  const email = document.getElementById('adminEmail').value.trim();
   const err   = document.getElementById('authError');
+  err.style.color = 'var(--cream)';
   err.textContent = '';
-  if (!email) { err.textContent = 'Please enter your admin email first.'; return; }
+  if (!email) { err.style.color = 'var(--red)'; err.textContent = 'Please enter your admin email.'; return; }
 
   // Check if admin
   const snap = await db.collection('users').where('email', '==', email).get();
   let isAdmin = false;
   snap.forEach(doc => { if (doc.data().role === 'admin') isAdmin = true; });
-  if (!isAdmin) { err.textContent = 'This email is not an admin account.'; return; }
+  if (!isAdmin) { err.style.color = 'var(--red)'; err.textContent = 'This email is not registered as an admin account.'; return; }
 
   try {
     const actionCodeSettings = {
-      url: 'https://death-luck.github.io/webtool/',
+      url: window.location.origin + window.location.pathname,
       handleCodeInApp: true,
     };
     await auth.sendSignInLinkToEmail(email, actionCodeSettings);
     localStorage.setItem('adminEmailForSignIn', email);
+    err.style.color = 'var(--success)';
+    err.textContent = '✅ Login link sent. Check your email.';
     document.getElementById('loginFormSection').style.display = 'none';
     document.getElementById('magicLinkSection').style.display = 'block';
     document.getElementById('magicLinkEmail').textContent = email;
   } catch(e) {
-    err.textContent = 'Error: ' + e.message;
+    err.style.color = 'var(--red)';
+    err.textContent = 'Error sending login link: ' + e.message;
   }
 }
 
 // ── Sign Up ───────────────────────────────────────────────────
 async function handleSignUp() {
-  const email = document.getElementById('emailInput').value.trim();
-  const pass  = document.getElementById('passwordInput').value;
+  const email = document.getElementById('signUpEmail').value.trim();
+  const pass  = document.getElementById('signUpPassword').value;
   const err   = document.getElementById('authError');
   err.textContent = '';
   if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
@@ -198,14 +241,36 @@ async function handleLogout() {
 
 function getAuthError(code) {
   const map = {
-    'auth/user-not-found':       'No account found with this email.',
-    'auth/wrong-password':       'Incorrect password.',
-    'auth/email-already-in-use': 'Email already registered.',
-    'auth/invalid-email':        'Invalid email address.',
-    'auth/weak-password':        'Password is too weak.',
-    'auth/too-many-requests':    'Too many attempts. Try again later.',
+    'auth/user-not-found':             'No account found with this email.',
+    'auth/wrong-password':             'Incorrect password.',
+    'auth/email-already-in-use':       'Email already registered.',
+    'auth/invalid-email':              'Invalid email address.',
+    'auth/weak-password':              'Password is too weak.',
+    'auth/too-many-requests':          'Too many attempts. Try again later.',
+    'auth/network-request-failed':     'Network error. Check your internet connection.',
+    'auth/user-disabled':              'This account has been disabled.',
+    'auth/operation-not-allowed':      'Email/password sign-in is not enabled.',
+    'auth/invalid-login-credentials':  'Invalid login credentials. Please check your email and password.',
   };
-  return map[code] || 'Something went wrong. Please try again.';
+  return map[code] || null;
+}
+
+// ── Tab Switching ──────────────────────────────────────────────
+function switchTab(tab, btn) {
+  // Hide all tab contents
+  document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+  // Remove active class from all buttons
+  document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
+
+  // Show selected tab
+  const pane = document.getElementById(tab + 'Tab');
+  if (pane) pane.style.display = 'block';
+  // Add active class to clicked button
+  if (btn && btn.classList) btn.classList.add('active');
+
+  // Clear any previous errors
+  const err = document.getElementById('authError');
+  if (err) err.textContent = '';
 }
 
 // ── Mobile Menu ───────────────────────────────────────────────

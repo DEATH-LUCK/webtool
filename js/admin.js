@@ -29,6 +29,10 @@ async function openAdminPanel() {
       await db.collection('users').doc(currentUser.uid).update({ superadmin: true });
     }
   } catch(e) {}
+  const info = document.getElementById('adminPanelUserInfo');
+  if (info && currentUser) {
+    info.textContent = currentUser.email + ' · ' + (currentRole || 'user');
+  }
   document.getElementById('adminPanel').classList.add('open');
   showAdminTab('users', document.querySelector('.admin-tab-btn'));
 }
@@ -57,17 +61,59 @@ async function loadUsersPane() {
   el.innerHTML = '<p class="muted" style="text-align:center;padding:20px;">Loading...</p>';
   try {
     const myPerms = await getMyPermissions();
+    const search = document.getElementById('adminUserSearch')?.value.trim().toLowerCase() || '';
+    const filter = document.getElementById('adminUserFilter')?.value || 'all';
     const snap    = await db.collection('users').get();
     if (snap.empty) { el.innerHTML = '<p class="muted">No users found.</p>'; return; }
     el.innerHTML = '';
 
-    const pending  = [], admins = [], users = [], banned = [];
-    snap.docs.forEach(doc => {
-      const d = doc.data();
-      if (d.status === 'pending')  pending.push({doc, data:d});
-      else if (d.status === 'banned') banned.push({doc, data:d});
-      else if (d.role === 'admin') admins.push({doc, data:d});
-      else                         users.push({doc, data:d});
+    const allUsers = snap.docs.map(doc => ({ doc, data: doc.data() }));
+    const filtered = allUsers.filter(({data}) => {
+      const email = (data.email || '').toLowerCase();
+      const role = (data.role || 'user').toLowerCase();
+      const status = (data.status || 'approved').toLowerCase();
+      if (search && !(email.includes(search) || role.includes(search) || status.includes(search))) return false;
+      if (filter === 'pending' && status !== 'pending') return false;
+      if (filter === 'approved' && status !== 'approved') return false;
+      if (filter === 'banned' && status !== 'banned') return false;
+      if (filter === 'admin' && role !== 'admin') return false;
+      return true;
+    });
+
+    const counts = { total: allUsers.length, pending: 0, approved: 0, banned: 0, admin: 0 };
+    allUsers.forEach(({data}) => {
+      const role = (data.role || 'user').toLowerCase();
+      const status = (data.status || 'approved').toLowerCase();
+      if (status === 'pending') counts.pending += 1;
+      else if (status === 'banned') counts.banned += 1;
+      else counts.approved += 1;
+      if (role === 'admin') counts.admin += 1;
+    });
+
+    const countsEl = document.getElementById('adminUserCounts');
+    if (countsEl) {
+      countsEl.innerHTML =
+        statCard('👥', 'Total', counts.total) +
+        statCard('⏳', 'Pending', counts.pending) +
+        statCard('🚫', 'Banned', counts.banned) +
+        statCard('👑', 'Admins', counts.admin);
+    }
+
+    if (filtered.length === 0) {
+      el.innerHTML = '<p class="muted" style="text-align:center;padding:20px;">No users match your search or filter.</p>';
+      return;
+    }
+
+    const pending = [];
+    const admins = [];
+    const users = [];
+    const banned = [];
+
+    filtered.forEach(({doc, data}) => {
+      if (data.status === 'pending') pending.push({doc, data});
+      else if (data.status === 'banned') banned.push({doc, data});
+      else if (data.role === 'admin') admins.push({doc, data});
+      else users.push({doc, data});
     });
 
     function sectionHeader(icon, label, count, color) {
