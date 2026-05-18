@@ -16,15 +16,13 @@
     <!-- Login Form -->
     <div id="loginFormSection">
       <div class="login-logo">📚 My Library</div>
-      <div class="login-subtitle">Your personal digital collection</div>
+      <div class="login-subtitle">Curate your personal digital archive</div>
 
       <!-- Tabs -->
       <div class="auth-tabs">
         <button class="tab-btn active" onclick="switchTab('signIn', this)">Sign In</button>
         <button class="tab-btn" onclick="switchTab('signUp', this)">Sign Up</button>
-        <button class="tab-btn" onclick="switchTab('admin', this)">Admin</button>
       </div>
-      <div class="auth-note">Existing users: use Sign In. New users: use Sign Up. Admins: use Admin tab for email-link login only.</div>
 
       <!-- Sign In Tab -->
       <div id="signInTab" class="tab-content">
@@ -37,11 +35,11 @@
           <input type="password" id="signInPassword" placeholder="••••••••" autocomplete="current-password"
             onkeydown="if(event.key==='Enter') handleSignIn()">
         </div>
-        <div style="text-align:right;margin-bottom:16px;">
-          <a href="#" onclick="handleForgotPassword(); return false;" style="color:var(--text2);font-size:0.85rem;text-decoration:none;">Forgot Password?</a>
+        <div style="text-align:right;margin-bottom:20px;">
+          <a href="#" onclick="handleForgotPassword(); return false;" style="color:var(--amber);font-size:0.8rem;text-decoration:none;opacity:0.8;transition:0.2s;">Forgot Password?</a>
         </div>
         <div class="auth-buttons">
-          <button class="btn btn-primary" onclick="handleSignIn()">Sign In</button>
+          <button class="btn btn-primary" onclick="handleSignIn()" style="width:100%;">Sign In</button>
         </div>
       </div>
 
@@ -57,28 +55,7 @@
             onkeydown="if(event.key==='Enter') handleSignUp()">
         </div>
         <div class="auth-buttons">
-          <button class="btn btn-primary" onclick="handleSignUp()">Create Account</button>
-        </div>
-      </div>
-
-      <!-- Admin Tab -->
-      <div id="adminTab" class="tab-content" style="display:none;">
-        <div class="form-group">
-          <label class="form-label">Admin Email</label>
-          <input type="email" id="adminEmail" placeholder="admin@example.com" autocomplete="email">
-        </div>
-        <div style="text-align:center;margin-bottom:16px;">
-          <p style="color:var(--text2);font-size:0.85rem;margin-bottom:8px;">
-            🔐 Secure passwordless login for administrators
-          </p>
-          <p style="color:var(--text3);font-size:0.75rem;">
-            Access user management, content approval, and system administration
-          </p>
-        </div>
-        <div class="auth-buttons">
-          <button class="btn btn-primary" onclick="sendAdminMagicLink()" style="background:var(--amber);border-color:var(--amber);color:#0c0b09;">
-            📧 Send Login Link
-          </button>
+          <button class="btn btn-primary" onclick="handleSignUp()" style="width:100%;">Create Account</button>
         </div>
       </div>
 
@@ -111,8 +88,8 @@
       <div class="nav-logo" onclick="closeReader()">📚 My Library</div>
       <div class="nav-right" id="desktopNav">
         <span class="nav-email" id="navEmail"></span>
-        <span class="badge-admin" id="navAdminBadge">ADMIN</span>
         <button class="btn btn-ghost btn-sm" id="navUploadBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
+        <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" style="display:none" onclick="toggleBulkMode()">☑ Select</button>
         <button class="btn btn-ghost btn-sm" id="navAdminBtn"  style="display:none" onclick="openAdminPanel()">⚙ Admin</button>
         <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()">🌙</button>
         <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
@@ -120,9 +97,9 @@
       <!-- Hamburger -->
       <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
       <!-- Mobile Dropdown -->
+      <!-- Bulk actions will be desktop only for now -->
       <div class="mobile-menu" id="mobileMenu">
         <div class="mobile-menu-email" id="mobileEmail"></div>
-        <div id="mobileAdminBadge" style="display:none; padding:4px 12px 8px;"><span class="badge-admin" style="display:inline-flex;">ADMIN</span></div>
         <button class="menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
         <button class="menu-item" id="mobileAdminBtn"  style="display:none" onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
         <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
@@ -180,7 +157,32 @@
       <div id="emptyState">
         <div class="empty-icon">📭</div>
         <div class="empty-title">No books found</div>
-        <div class="empty-sub" id="emptyMsg">Upload your first book to get started.</div>
+        <div class="empty-sub" id="emptyMsg"></div>
+      </div>
+
+      <!-- Bulk Actions Toolbar -->
+      <div class="bulk-toolbar" id="bulkToolbar" style="display:none;">
+        <span class="bulk-count" id="bulkCount">0 selected</span>
+        <button class="btn btn-danger btn-sm" id="bulkDeleteBtn" onclick="bulkDelete()" disabled>🗑 Delete</button>
+        <button class="btn btn-primary btn-sm" id="bulkMoveBtn" onclick="bulkMove()" disabled>📁 Move</button>
+      </div>
+
+      <!-- Bulk Move Overlay -->
+      <div class="modal-overlay" id="bulkMoveOverlay" style="z-index:1001;">
+        <div class="modal">
+          <div class="modal-title">Move Selected Books</div>
+          <div class="modal-body">
+            <p style="margin-bottom:10px;">Select a folder to move the books to:</p>
+            <div class="folder-input-group">
+              <select id="bulkFolderSelect"></select>
+              <button type="button" class="btn-tool" onclick="createFolderInUpload()" title="Create New Folder">➕</button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeBulkMove()">Cancel</button>
+            <button class="btn btn-primary" onclick="confirmBulkMove()">Move</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -242,7 +244,18 @@
       <div class="dropzone-sub">Supports PDF, EPUB, TXT, DOC, DOCX (max 50MB)</div>
     </div>
     <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
-    <div id="fileChosen" class="file-chosen" style="display:none;margin-bottom:12px;"></div>
+    
+    <!-- File Preview Card -->
+    <div id="fileChosen" style="display:none;">
+      <div class="upload-preview-area">
+        <div class="upload-thumb" id="uploadThumb">📄</div>
+        <div class="upload-file-details">
+          <div class="upload-file-name" id="selectedFileName"></div>
+          <div class="upload-file-meta" id="selectedFileMeta"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Fields -->
     <div class="form-group">
       <label class="form-label">Title *</label>
@@ -253,9 +266,13 @@
       <input type="text" id="bookAuthor" placeholder="Author name (optional)">
     </div>
     <div class="form-group">
-      <label class="form-label">Folder</label>
-      <select id="bookFolder" onchange="onFolderChange(this)"></select>
-      <input type="text" id="newFolderName" placeholder="New folder name..." style="display:none; margin-top:8px;">
+      <label class="form-label">Archive / Folder</label>
+      <div class="folder-input-group">
+        <select id="bookFolder"></select>
+        <button type="button" class="btn-tool" onclick="createFolderInUpload()" title="Create New Folder">➕</button>
+        <button type="button" class="btn-tool" onclick="renameSelectedFolder()" title="Rename Folder">✏️</button>
+        <button type="button" class="btn-tool btn-danger" onclick="deleteSelectedFolder()" title="Delete Folder">🗑</button>
+      </div>
     </div>
     <!-- Progress -->
     <div id="uploadProgress" style="display:none;" class="progress-wrap">
@@ -287,6 +304,40 @@
 </div>
 
 <!-- ══════════════════════════════════════════════════════════
+     PROMPT MODAL (for folder creation/rename)
+══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="promptModal">
+  <div class="modal">
+    <div class="modal-title" id="promptTitle"></div>
+    <div class="modal-body">
+      <input type="text" id="promptInput" placeholder="Enter value">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="promptCancelBtn">Cancel</button>
+      <button class="btn btn-primary" id="promptConfirmBtn">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     CONFIRM MODAL (for folder deletion/rename confirmation)
+══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-title" id="confirmTitle"></div>
+    <div class="modal-body">
+      <p id="confirmBody"></p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmCancelBtn">Cancel</button>
+      <button class="btn btn-danger" id="confirmBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════════════
      ADMIN PANEL
 ══════════════════════════════════════════════════════════ -->
 <div class="admin-overlay" id="adminPanel">
@@ -294,65 +345,35 @@
     <div class="admin-header">
       <div>
         <h2>⚙ Admin Panel</h2>
-        <div class="admin-header-meta"><span id="adminPanelUserInfo"></span></div>
+        <div class="admin-header-meta"><span id="adminPanelUserInfo" class="muted" style="font-size: 0.75rem;"></span></div>
       </div>
       <button class="modal-close" onclick="closeAdminPanel()">✕</button>
     </div>
+    
     <div class="admin-tabs">
-      <button class="admin-tab-btn active" onclick="showAdminTab('users', this)">👥 Users</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('folders', this)">📁 Folders</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('stats', this)">📊 Stats</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('logs', this)">🧾 Logs</button>
+      <button class="admin-tab-btn active" onclick="showAdminTab('dash', this)">📊 Dash</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('users', this)">👥 Users</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('folders', this)">📁 Archives</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('logs', this)">📜 Logs</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('settings', this)">⚙️ Settings</button>
     </div>
-    <div class="admin-content">
+
+    <div class="admin-content" id="adminMainContent">
+      <!-- Dashboard Pane -->
+      <div id="adminPane_dash" class="admin-tab-pane"></div>
+
       <!-- Users Pane -->
-      <div id="adminPane_users" class="admin-tab-pane">
-        <div class="admin-section admin-panel-top">
-          <div>
-            <h4>Manage Users</h4>
-            <p class="muted" style="margin:6px 0 0;">Search users, approve pending accounts, promote admins, ban users, and control permissions.</p>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="loadUsersPane()">Refresh</button>
-        </div>
+      <div id="adminPane_users" class="admin-tab-pane" style="display:none;">
         <div class="admin-users-toolbar">
-          <input type="text" id="adminUserSearch" placeholder="Search by email or role..." oninput="loadUsersPane()">
-          <select id="adminUserFilter" onchange="loadUsersPane()">
-            <option value="all">All users</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="banned">Banned</option>
-            <option value="admin">Admins</option>
-          </select>
+          <input type="text" id="adminUserSearch" placeholder="Search email..." oninput="loadUsersPane()">
         </div>
-        <div id="adminUserCounts" class="admin-user-stats"></div>
-        <div class="admin-section">
-          <h4>Add New Admin</h4>
-          <div class="add-row">
-            <input type="email" id="adminEmailInput" placeholder="user@email.com">
-            <button class="btn btn-primary btn-sm" onclick="addAdmin()">Add</button>
-          </div>
-        </div>
-        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Users</h4>
         <div id="usersList"></div>
       </div>
-      <!-- Folders Pane -->
-      <div id="adminPane_folders" class="admin-tab-pane" style="display:none;">
-        <div class="admin-section">
-          <h4>Create New Folder</h4>
-          <div class="add-row">
-            <input type="text" id="newFolderInput" placeholder="Folder name...">
-            <button class="btn btn-primary btn-sm" onclick="createFolder()">Create</button>
-          </div>
-        </div>
-        <h4 style="margin-bottom:10px; font-size:0.875rem;">All Folders</h4>
-        <div id="foldersList"></div>
-      </div>
-      <!-- Stats Pane -->
-      <div id="adminPane_stats" class="admin-tab-pane" style="display:none;"></div>
 
-      <!-- Logs Pane -->
+      <!-- Other Panes -->
+      <div id="adminPane_folders" class="admin-tab-pane" style="display:none;"></div>
       <div id="adminPane_logs" class="admin-tab-pane" style="display:none;"></div>
-
+      <div id="adminPane_settings" class="admin-tab-pane" style="display:none;"></div>
     </div>
   </div>
 </div>
