@@ -3,6 +3,7 @@
 // ============================================================
 let currentUser = null;
 let currentRole = 'user';
+let isSuperAdmin = false;
 
 // ── Theme ─────────────────────────────────────────────────────
 function applyTheme() {
@@ -26,7 +27,7 @@ window.addEventListener('load', async () => {
   if (auth.isSignInWithEmailLink(window.location.href)) {
     let email = localStorage.getItem('adminEmailForSignIn');
     if (!email) {
-      email = window.prompt('Please enter your email to confirm:');
+      email = await showPrompt('Verify Identity', 'Please enter your email to confirm sign-in:');
     }
     try {
       const result = await auth.signInWithEmailLink(email, window.location.href);
@@ -45,29 +46,40 @@ window.addEventListener('load', async () => {
 
 // ── Auth State ────────────────────────────────────────────────
 auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    let doc = await db.collection('users').doc(user.uid).get();
-    const isAdmin   = doc.exists && doc.data().role === 'admin';
-    const isPending = doc.exists && doc.data().status === 'pending';
+  try {
+    if (user) {
+      let doc = await db.collection('users').doc(user.uid).get();
+      const userData = doc.exists ? doc.data() : null;
 
-    // Block pending users
-    if (isPending && !isAdmin) {
-      await auth.signOut();
-      const err = document.getElementById('authError');
-      if (err) {
-        err.style.color = 'var(--danger)';
-        err.textContent = '⏳ Your account is pending admin approval. Please wait.';
+      // Blocks users who are not approved or are banned
+      if (userData && (userData.status === 'pending' || userData.status === 'banned')) {
+        await auth.signOut();
+        const err = document.getElementById('authError');
+        if (err) {
+          err.style.color = 'var(--red)';
+          if (userData.status === 'banned') {
+            err.textContent = '🚫 Account banned. Please contact the administrator.';
+          } else {
+            err.textContent = '⏳ Your account is pending admin approval. Please wait.';
+          }
+        }
+        return;
       }
-      return;
-    }
 
-    currentUser = user;
-    await loadUserRole(user.uid, user.email);
-    showApp();
-  } else {
-    currentUser = null;
-    currentRole = 'user';
+      currentUser = user;
+      await loadUserRole(user.uid, user.email);
+      showApp();
+    } else {
+      currentUser = null;
+      currentRole = 'user';
+      isSuperAdmin = false;
+      showLogin();
+    }
+  } catch (e) {
+    console.error("Auth state error:", e);
     showLogin();
+    const err = document.getElementById('authError');
+    if (err) err.textContent = "Error: " + e.message;
   }
 });
 
@@ -82,14 +94,18 @@ async function loadUserRole(uid, email) {
       if (!snap.empty) doc = snap.docs[0];
     }
     if (doc && doc.exists) {
-      currentRole = doc.data().role || 'user';
+      const data = doc.data();
+      currentRole = data.role || 'user';
+      isSuperAdmin = data.superadmin === true;
     } else {
       currentRole = 'user';
+      isSuperAdmin = false;
     }
-    console.log('Role loaded:', currentRole, 'for', email);
+    console.log('Role loaded:', currentRole, '(Super:', isSuperAdmin, ') for', email);
   } catch(e) {
     console.error('loadUserRole error:', e);
     currentRole = 'user';
+    isSuperAdmin = false;
   }
 }
 
@@ -113,22 +129,26 @@ function showApp() {
   if (mEmail) mEmail.textContent = currentUser.email;
 
   // Hide all admin elements first
-  ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
+  ['navUploadBtn', 'navAdminBtn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
-  ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn'].forEach(id => {
+  ['mobileUploadBtn', 'mobileAdminBtn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
   // Show admin elements if admin
   if (currentRole === 'admin') {
-    ['navAdminBadge','navUploadBtn','navAdminBtn'].forEach(id => {
+    ['navUploadBtn', 'navAdminBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'inline-flex';
     });
-    ['mobileAdminBadge','mobileUploadBtn','mobileAdminBtn'].forEach(id => {
+    ['mobileUploadBtn', 'mobileAdminBtn'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'block';
+    });
+    ['bulkToggleBtn'].forEach(id => { // Bulk select button for desktop
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
     });
@@ -145,17 +165,6 @@ async function handleSignIn() {
   err.style.color = 'var(--cream)';
   err.textContent = '';
   if (!email || !pass) { err.style.color = 'var(--red)'; err.textContent = 'Please enter email and password.'; return; }
-
-  try {
-    const snap = await db.collection('users').where('email', '==', email).get();
-    if (!snap.empty && snap.docs[0].data().role === 'admin') {
-      err.style.color = 'var(--red)';
-      err.textContent = 'This is an admin account. Use the Admin tab to login with your email link.';
-      return;
-    }
-  } catch(e) {
-    console.error('Admin check failed:', e);
-  }
 
   try {
     await auth.signInWithEmailAndPassword(email, pass);

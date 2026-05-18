@@ -17,6 +17,7 @@ async function loadBooks() {
     renderBooks();
   } catch(e) {
     console.error('loadBooks error:', e);
+    renderBooks(); 
   }
 }
 
@@ -59,7 +60,7 @@ function renderBooks() {
     gridEl.style.display = 'grid';
     listEl.style.display = 'none';
     filtered.forEach((book, i) => gridEl.appendChild(createGridCard(book, i)));
-  } else {
+  } else { // List view
     gridEl.style.display = 'none';
     listEl.style.display = 'block';
     filtered.forEach((book, i) => listEl.appendChild(createListItem(book, i)));
@@ -94,7 +95,7 @@ function createGridCard(book, index) {
   card.style.animationDelay = (index * 0.04) + 's';
 
   // Bulk checkbox (only in bulk mode)
-  if (bulkMode) {
+  if (bulkMode && currentRole === 'admin') { // Only show for admins in bulk mode
     const cbWrap = document.createElement('label');
     cbWrap.className = 'bulk-check-wrap';
     const cb = document.createElement('input');
@@ -183,7 +184,7 @@ function createListItem(book, index) {
   item.style.animationDelay = (index * 0.03) + 's';
 
   // Cover thumb
-  const coverDiv = document.createElement('div');
+  const coverDiv = document.createElement('div'); // This is the cover for list view
   coverDiv.className = 'list-cover';
   coverDiv.style.cursor = 'pointer';
   coverDiv.onclick = () => openBook(book.id);
@@ -197,6 +198,18 @@ function createListItem(book, index) {
     _renderListCover(coverDiv, book);
   }
 
+  // Bulk checkbox (only in bulk mode)
+  if (bulkMode && currentRole === 'admin') { // Only show for admins in bulk mode
+    const cbWrap = document.createElement('label');
+    cbWrap.className = 'bulk-check-wrap-list'; // Different class for list view
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.className = 'bulk-checkbox';
+    cb.dataset.bookid = book.id;
+    cb.checked = bulkSelected.has(book.id);
+    cb.onclick = (e) => { e.stopPropagation(); toggleBookSelect(book.id, cb); };
+    coverDiv.appendChild(cbWrap); // Append to cover div for positioning
+    cbWrap.appendChild(cb);
+  }
   // Body text
   const bodyDiv = document.createElement('div');
   bodyDiv.className = 'list-body';
@@ -248,6 +261,58 @@ function createListItem(book, index) {
   item.appendChild(bodyDiv);
   item.appendChild(actionsDiv);
   return item;
+}
+
+/**
+ * Custom Prompt replacing window.prompt
+ */
+function showPrompt(title, placeholder, defaultValue = '') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('promptModal');
+    const input = document.getElementById('promptInput');
+    document.getElementById('promptTitle').textContent = title;
+    input.placeholder = placeholder || '';
+    input.value = defaultValue;
+    modal.classList.add('open');
+    setTimeout(() => input.focus(), 50);
+
+    const done = (val) => {
+      modal.classList.remove('open');
+      document.getElementById('promptConfirmBtn').onclick = null;
+      document.getElementById('promptCancelBtn').onclick = null;
+      input.onkeydown = null;
+      resolve(val);
+    };
+
+    document.getElementById('promptConfirmBtn').onclick = () => done(input.value.trim());
+    document.getElementById('promptCancelBtn').onclick = () => done(null);
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') done(input.value.trim());
+      if (e.key === 'Escape') done(null);
+    };
+  });
+}
+
+/**
+ * Custom Confirm replacing window.confirm
+ */
+function showConfirm(title, message) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmBody').textContent = message;
+    modal.classList.add('open');
+
+    const done = (val) => {
+      modal.classList.remove('open');
+      document.getElementById('confirmBtn').onclick = null;
+      document.getElementById('confirmCancelBtn').onclick = null;
+      resolve(val);
+    };
+
+    document.getElementById('confirmBtn').onclick = () => done(true);
+    document.getElementById('confirmCancelBtn').onclick = () => done(false);
+  });
 }
 
 // ── Stats ─────────────────────────────────────────────────────
@@ -335,10 +400,12 @@ let bulkMode    = false;
 let bulkSelected = new Set();
 
 function toggleBulkMode() {
+  if (currentRole !== 'admin') return; // Only admins can use bulk mode
   bulkMode = !bulkMode;
   bulkSelected.clear();
   document.getElementById('bulkToolbar').style.display = bulkMode ? 'flex' : 'none';
   document.getElementById('bulkToggleBtn').textContent = bulkMode ? '✕ Cancel' : '☑ Select';
+  // Add/remove class for styling active state
   document.getElementById('bulkToggleBtn').className   = bulkMode ? 'btn btn-ghost btn-sm active-bulk' : 'btn btn-ghost btn-sm';
   renderBooks();
 }
@@ -351,6 +418,7 @@ function toggleBookSelect(bookId, checkbox) {
 
 function toggleSelectAll() {
   const visible = allBooks.filter(b => {
+    // Re-apply current filters to get only visible books
     const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
     const matchSearch = !search || b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
     const matchFilter = currentFilter === 'all' || currentFilter === 'folders' ||
@@ -359,6 +427,7 @@ function toggleSelectAll() {
       (currentFilter === 'other' && !['pdf','epub'].includes(b.fileType));
     const matchFolder = currentFolder === 'all' || b.category === currentFolder;
     return matchSearch && matchFilter && matchFolder;
+    // Note: This filter logic is duplicated from renderBooks. Consider refactoring.
   });
   const allChecked = visible.every(b => bulkSelected.has(b.id));
   visible.forEach(b => allChecked ? bulkSelected.delete(b.id) : bulkSelected.add(b.id));
@@ -382,7 +451,7 @@ function updateBulkToolbar() {
 async function bulkDelete() {
   if (!bulkSelected.size) return;
   const cnt = bulkSelected.size;
-  if (!confirm('Delete ' + cnt + ' book' + (cnt !== 1 ? 's' : '') + '? Cannot be undone.')) return;
+  if (!await showConfirm('Bulk Delete', `Are you sure you want to delete ${cnt} selected book${cnt !== 1 ? 's' : ''}? This cannot be undone.`)) return;
   try {
     const batch = db.batch();
     bulkSelected.forEach(id => batch.delete(db.collection('books').doc(id)));
@@ -390,8 +459,8 @@ async function bulkDelete() {
     allBooks = allBooks.filter(b => !bulkSelected.has(b.id));
     bulkSelected.clear();
     renderBooks();
-    showToast(cnt + ' books deleted.', 'success');
-    if (typeof logActivity === 'function') logActivity('bulk_deleted', { count: cnt });
+    showToast(`${cnt} book${cnt !== 1 ? 's' : ''} deleted.`, 'success');
+    if (typeof logAction === 'function') logAction(`BULK DELETE: Removed ${cnt} books`);
     updateBulkToolbar();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
@@ -402,10 +471,12 @@ async function bulkMove() {
   const overlay = document.getElementById('bulkMoveOverlay');
   if (!overlay) return;
   const sel = document.getElementById('bulkFolderSelect');
-  sel.innerHTML = '<option value="">Choose folder…</option>';
-  allFolders.forEach(f => {
+  sel.innerHTML = '<option value="" disabled selected>Choose folder…</option>'; // Default disabled option
+  // Ensure 'General' is always an option
+  if (!allFolders.includes('General')) allFolders.unshift('General');
+  allFolders.sort().forEach(f => { // Sort folders alphabetically
     const o = document.createElement('option');
-    o.value = f; o.textContent = f; sel.appendChild(o);
+    o.value = f; o.textContent = '📁 ' + f; sel.appendChild(o);
   });
   overlay.style.display = 'flex';
 }
@@ -422,8 +493,9 @@ async function confirmBulkMove() {
     allBooks.forEach(b => { if (bulkSelected.has(b.id)) b.category = folder; });
     bulkSelected.clear();
     closeBulkMove();
-    renderBooks();
+    renderBooks(); // Re-render to update categories
     showToast(cnt + ' books moved to "' + folder + '"', 'success');
+    if (typeof logAction === 'function') logAction(`BULK MOVE: ${cnt} books to folder "${folder}"`);
     updateBulkToolbar();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
