@@ -123,74 +123,87 @@ select option{background:var(--ink2)}
 /* ─── Layout ─────────────────────────────────────────────────── */
 .container{max-width:1200px;margin:0 auto;padding:0 28px}
 
-/* ─── Navbar ─────────────────────────────────────────────────── */
-.navbar{
-  position:sticky;top:0;z-index:100;
-  background:rgba(12,11,9,.93);
-  border-bottom:1px solid var(--line);
-  backdrop-filter:blur(20px) saturate(1.5);
-  -webkit-backdrop-filter:blur(20px) saturate(1.5);
+/* ─── Sidebar ────────────────────────────────────────────────── */
+.sidebar{
+  position:fixed;left:0;top:0;height:100%;width:76px;
+  background:var(--ink2);border-right:1px solid var(--line);
+  padding:0 10px;z-index:150;display:flex;flex-direction:column;
+  transition:width .3s var(--spring);
 }
-body.light-mode .navbar{background:rgba(250,246,238,.93)}
+.sidebar.open{width:250px}
 
-.navbar-inner{
-  display:flex;align-items:center;gap:14px;
-  height:56px;max-width:1200px;margin:0 auto;padding:0 28px;
+.sidebar .logo-details{
+  height:56px;display:flex;align-items:center;position:relative;
+  flex-shrink:0;border-bottom:1px solid var(--line);
 }
+.sidebar .logo-details .icon{
+  font-size:1.4rem;color:var(--amber);min-width:52px;text-align:center;
+  opacity:0;transition:opacity .25s ease;flex-shrink:0;
+}
+.sidebar .logo-details .logo_name{
+  font-family:var(--f-head);color:var(--amber);font-size:1.05rem;
+  white-space:nowrap;opacity:0;transition:opacity .25s ease;
+}
+.sidebar.open .logo-details .icon,
+.sidebar.open .logo-details .logo_name{opacity:1}
+.sidebar .logo-details #sidebarToggleBtn{
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
+  font-size:1.35rem;color:var(--cream3);cursor:pointer;transition:color .2s;
+}
+.sidebar .logo-details #sidebarToggleBtn:hover{color:var(--amber)}
 
-/* Decorative line under logo */
-.nav-logo{
-  font-family:var(--f-head);font-size:1.2rem;font-weight:400;
-  color:var(--amber);cursor:pointer;flex:1;
-  display:flex;align-items:center;gap:10px;
-  letter-spacing:.02em;transition:opacity .2s;
+.sidebar .nav-list{
+  list-style:none;margin-top:8px;flex:1;overflow-y:auto;overflow-x:hidden;
 }
-.nav-logo::after{
-  content:'';display:block;height:1px;width:24px;
-  background:var(--amber);opacity:.4;
-  flex-shrink:0;
-}
-.nav-logo:hover{opacity:.75}
+.sidebar .nav-list::-webkit-scrollbar{width:0}
+.sidebar li{position:relative;margin:3px 0}
 
-.nav-right{display:flex;align-items:center;gap:5px}
-.nav-email{font-size:.73rem;color:var(--cream3);padding:0 6px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar li a{
+  display:flex;align-items:center;height:46px;width:100%;
+  border-radius:var(--r);text-decoration:none;cursor:pointer;
+  color:var(--cream);font-size:.85rem;transition:background .18s,color .18s;
+}
+.sidebar li a:hover{background:var(--ink4);color:var(--amber)}
+.sidebar li a.active-bulk{color:var(--amber);background:var(--amber-fog)}
+.sidebar li i{min-width:52px;font-size:1.3rem;text-align:center;flex-shrink:0}
+.sidebar li .links_name{
+  white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.sidebar.open li .links_name{opacity:1;pointer-events:auto}
 
-.badge-admin{
-  display:none;
-  background:var(--amber);color:#0c0b09;
-  font-size:.58rem;font-weight:700;
-  padding:2px 8px;border-radius:20px;letter-spacing:.1em;text-transform:uppercase;
+.sidebar li .tooltip{
+  position:absolute;top:50%;left:calc(100% + 14px);transform:translateY(-50%);
+  background:var(--ink4);color:var(--cream);padding:6px 12px;border-radius:6px;
+  font-size:.78rem;box-shadow:var(--sh-sm);white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .15s;z-index:5;border:1px solid var(--line2);
 }
-.hamburger{
-  display:flex;background:var(--ink3);border:1px solid var(--line);
-  color:var(--cream);border-radius:var(--r);padding:7px 12px;font-size:.95rem;
-  transition:all .18s;
-}
-.hamburger:hover{border-color:var(--amber);color:var(--amber)}
+.sidebar li:hover .tooltip{opacity:1}
+.sidebar.open li .tooltip{display:none}
 
-/* ─── Mobile Menu ────────────────────────────────────────────── */
-.mobile-menu{
-  display:none;position:absolute;top:calc(100% + 5px);right:14px;
-  width:222px;background:var(--ink2);border:1px solid var(--line2);
-  border-radius:var(--r2);padding:8px;box-shadow:var(--sh);
-  z-index:200;flex-direction:column;gap:2px;
+.sidebar li.profile{
+  border-top:1px solid var(--line);padding:8px 0;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;margin:0;
 }
-.mobile-menu.open{display:flex;animation:popIn .17s var(--spring)}
-@keyframes popIn{from{opacity:0;transform:translateY(-5px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.sidebar .profile-details{display:flex;align-items:center;overflow:hidden;min-width:0;flex:1}
+.sidebar .profile-avatar{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+  background:var(--amber);color:#0c0b09;font-weight:700;font-size:.9rem;
+  display:flex;align-items:center;justify-content:center;margin:0 9px;
+}
+.sidebar .profile-email{
+  font-size:.72rem;color:var(--cream2);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .2s;
+}
+.sidebar.open .profile-email{opacity:1}
+#sidebarLogout{
+  cursor:pointer;color:var(--cream3);font-size:1.25rem;
+  min-width:44px;text-align:center;transition:color .2s;flex-shrink:0;
+}
+#sidebarLogout:hover{color:var(--red)}
 
-.mobile-menu-email{
-  font-size:.7rem;color:var(--cream3);
-  padding:8px 12px 10px;border-bottom:1px solid var(--line);
-  margin-bottom:4px;word-break:break-all;
-}
-.menu-item{
-  background:none;border:none;color:var(--cream);
-  padding:9px 12px;border-radius:6px;font-size:.84rem;
-  text-align:left;cursor:pointer;width:100%;transition:all .14s;
-}
-.menu-item:hover{background:var(--ink4);color:var(--amber)}
-.menu-item.danger{color:var(--red)}
-.menu-item.danger:hover{background:rgba(184,64,64,.08)}
+/* ─── Main content shift ─────────────────────────────────────── */
+.app-main{margin-left:76px;min-height:100vh;transition:margin-left .3s var(--spring)}
+.sidebar.open ~ .app-main{margin-left:250px}
 
 /* ─── Login Page ─────────────────────────────────────────────── */
 #loginPage{
@@ -652,6 +665,8 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 /* ─── Mobile ─────────────────────────────────────────────────── */
 @media(max-width:768px){
   .navbar{position:relative}
+  .sidebar.open ~ .app-main{margin-left:76px}
+  .sidebar.open{box-shadow:var(--sh)}
   .navbar-inner{padding:0 16px}
   .container{padding:0 16px}
 
