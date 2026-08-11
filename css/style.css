@@ -162,7 +162,7 @@ body.light-mode .navbar{background:rgba(250,246,238,.93)}
   padding:2px 8px;border-radius:20px;letter-spacing:.1em;text-transform:uppercase;
 }
 .hamburger{
-  display:none;background:var(--ink3);border:1px solid var(--line);
+  display:flex;background:var(--ink3);border:1px solid var(--line);
   color:var(--cream);border-radius:var(--r);padding:7px 12px;font-size:.95rem;
   transition:all .18s;
 }
@@ -651,10 +651,6 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 
 /* ─── Mobile ─────────────────────────────────────────────────── */
 @media(max-width:768px){
-  .nav-right .nav-email,.nav-right .badge-admin,
-  .nav-right #navUploadBtn,.nav-right #navAdminBtn,
-  .nav-right #themeBtn{display:none!important}
-  .hamburger{display:flex!important}
   .navbar{position:relative}
   .navbar-inner{padding:0 16px}
   .container{padding:0 16px}
