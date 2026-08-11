@@ -24,6 +24,10 @@ async function openReader(book) {
   document.getElementById('libraryView').style.display = 'none';
   document.getElementById('appPage').style.display     = 'block';
   document.getElementById('readerBookTitle').textContent = book.title;
+  const sidebarEl = document.getElementById('appSidebar');
+  if (sidebarEl) { sidebarEl.classList.remove('open'); sidebarEl.style.display = 'none'; }
+  const mainEl = document.querySelector('.app-main');
+  if (mainEl) mainEl.style.marginLeft = '0';
 
   // Reset
   const canvas = document.getElementById('pdfCanvas');
@@ -47,6 +51,10 @@ function closeReader() {
   document.getElementById('readerView').style.display  = 'none';
   document.getElementById('libraryView').style.display = 'block';
   document.getElementById('appPage').style.display     = 'block';
+  const sidebarEl = document.getElementById('appSidebar');
+  if (sidebarEl) sidebarEl.style.display = 'flex';
+  const mainEl = document.querySelector('.app-main');
+  if (mainEl) mainEl.style.marginLeft = '';
   pdfDoc = null; isRendering = false;
   epubChapters = []; epubCurrentChapter = 0;
   const canvas = document.getElementById('pdfCanvas');

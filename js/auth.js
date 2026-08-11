@@ -24,15 +24,19 @@ async function loadAppSettings() {
 function applyTheme() {
   if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light-mode');
-    const m = document.getElementById('mobileThemeBtn');
-    if (m) m.textContent = '☀️ Light Mode';
+    const icon  = document.getElementById('themeToggleIcon');
+    const label = document.getElementById('themeToggleLabel');
+    if (icon)  icon.className  = 'bx bx-sun';
+    if (label) label.textContent = 'Light Mode';
   }
 }
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light-mode');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  const m = document.getElementById('mobileThemeBtn');
-  if (m) m.textContent = isLight ? '☀️ Light Mode' : '🌙 Dark Mode';
+  const icon  = document.getElementById('themeToggleIcon');
+  const label = document.getElementById('themeToggleLabel');
+  if (icon)  icon.className  = isLight ? 'bx bx-sun' : 'bx bx-moon';
+  if (label) label.textContent = isLight ? 'Light Mode' : 'Dark Mode';
 }
 applyTheme();
 
@@ -149,19 +153,21 @@ function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display   = 'block';
 
-  // Update email in the account menu
+  // Update email + avatar in the sidebar profile
   const mEmail = document.getElementById('mobileEmail');
   if (mEmail) mEmail.textContent = currentUser.email;
+  const avatar = document.getElementById('sidebarAvatar');
+  if (avatar) avatar.textContent = currentUser.email.charAt(0).toUpperCase();
 
-  // Hide all admin-only menu items first
-  ['mobileUploadBtn', 'mobileAdminBtn', 'bulkToggleBtn'].forEach(id => {
+  // Hide all admin-only nav items first
+  ['navLiUpload', 'navLiAdmin', 'navLiSelect'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
-  // Show admin-only menu items if admin
+  // Show admin-only nav items if admin
   if (currentRole === 'admin') {
-    ['mobileUploadBtn', 'mobileAdminBtn', 'bulkToggleBtn'].forEach(id => {
+    ['navLiUpload', 'navLiAdmin', 'navLiSelect'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
     });
@@ -266,7 +272,7 @@ async function handleSignUp() {
 
 async function handleLogout() {
   await auth.signOut();
-  closeMobileMenu();
+  closeSidebarMobile();
 }
 
 function getAuthError(code) {
@@ -303,13 +309,19 @@ function switchTab(tab, btn) {
   if (err) err.textContent = '';
 }
 
-// ── Mobile Menu ───────────────────────────────────────────────
-function toggleMobileMenu() { document.getElementById('mobileMenu').classList.toggle('open'); }
-function closeMobileMenu()  { document.getElementById('mobileMenu').classList.remove('open'); }
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('mobileMenu');
-  const btn  = document.getElementById('hamburgerBtn');
-  if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
-    menu.classList.remove('open');
+// ── Sidebar ───────────────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('appSidebar');
+  const btn     = document.getElementById('sidebarToggleBtn');
+  sidebar.classList.toggle('open');
+  if (btn) btn.className = sidebar.classList.contains('open') ? 'bx bx-menu-alt-right' : 'bx bx-menu';
+}
+function closeSidebarMobile() {
+  // Auto-collapse the sidebar after choosing a nav action (nicer on small screens)
+  if (window.innerWidth <= 768) {
+    const sidebar = document.getElementById('appSidebar');
+    const btn     = document.getElementById('sidebarToggleBtn');
+    if (sidebar) sidebar.classList.remove('open');
+    if (btn) btn.className = 'bx bx-menu';
   }
-});
+}

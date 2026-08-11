@@ -404,9 +404,12 @@ function toggleBulkMode() {
   bulkMode = !bulkMode;
   bulkSelected.clear();
   document.getElementById('bulkToolbar').style.display = bulkMode ? 'flex' : 'none';
-  document.getElementById('bulkToggleBtn').textContent = bulkMode ? '✕ Cancel Select' : '☑ Select';
-  // Add/remove class for styling active state (menu-item, since it now lives in the dropdown)
-  document.getElementById('bulkToggleBtn').className   = bulkMode ? 'menu-item active-bulk' : 'menu-item';
+  const btn = document.getElementById('bulkToggleBtn');
+  const icon = document.getElementById('bulkToggleIcon');
+  const label = document.getElementById('bulkToggleLabel');
+  if (label) label.textContent = bulkMode ? 'Cancel Select' : 'Select';
+  if (icon)  icon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
+  if (btn)   btn.classList.toggle('active-bulk', bulkMode);
   renderBooks();
 }
 
