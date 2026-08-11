@@ -4,19 +4,33 @@
 let currentUser = null;
 let currentRole = 'user';
 let isSuperAdmin = false;
+let appSettings = { maintenanceMode: false, registrationOpen: true };
+
+// ── App Settings (maintenance mode / registration control) ────
+async function loadAppSettings() {
+  try {
+    const doc = await db.collection('settings').doc('app').get();
+    if (doc.exists) {
+      const d = doc.data();
+      appSettings.maintenanceMode  = d.maintenanceMode === true;
+      appSettings.registrationOpen = d.registrationOpen !== false; // default open
+    }
+  } catch (e) {
+    console.error('loadAppSettings error:', e);
+  }
+}
 
 // ── Theme ─────────────────────────────────────────────────────
 function applyTheme() {
   if (localStorage.getItem('theme') === 'light') {
     document.body.classList.add('light-mode');
-    const btn = document.getElementById('themeBtn');
-    if (btn) btn.textContent = '☀️';
+    const m = document.getElementById('mobileThemeBtn');
+    if (m) m.textContent = '☀️ Light Mode';
   }
 }
 function toggleTheme() {
   const isLight = document.body.classList.toggle('light-mode');
   localStorage.setItem('theme', isLight ? 'light' : 'dark');
-  document.getElementById('themeBtn').textContent = isLight ? '☀️' : '🌙';
   const m = document.getElementById('mobileThemeBtn');
   if (m) m.textContent = isLight ? '☀️ Light Mode' : '🌙 Dark Mode';
 }
@@ -62,6 +76,19 @@ auth.onAuthStateChanged(async (user) => {
           } else {
             err.textContent = '⏳ Your account is pending admin approval. Please wait.';
           }
+        }
+        return;
+      }
+
+      // Blocks non-admins during maintenance mode
+      await loadAppSettings();
+      const roleForMaintenanceCheck = userData?.role || 'user';
+      if (appSettings.maintenanceMode && roleForMaintenanceCheck !== 'admin') {
+        await auth.signOut();
+        const err = document.getElementById('authError');
+        if (err) {
+          err.style.color = 'var(--red)';
+          err.textContent = '🚧 Site is under maintenance. Please check back later.';
         }
         return;
       }
@@ -122,33 +149,19 @@ function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display   = 'block';
 
-  // Update email in navbar
-  const emailEl = document.getElementById('navEmail');
-  if (emailEl) emailEl.textContent = currentUser.email;
+  // Update email in the account menu
   const mEmail = document.getElementById('mobileEmail');
   if (mEmail) mEmail.textContent = currentUser.email;
 
-  // Hide all admin elements first
-  ['navUploadBtn', 'navAdminBtn'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
-  });
-  ['mobileUploadBtn', 'mobileAdminBtn'].forEach(id => {
+  // Hide all admin-only menu items first
+  ['mobileUploadBtn', 'mobileAdminBtn', 'bulkToggleBtn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
-  // Show admin elements if admin
+  // Show admin-only menu items if admin
   if (currentRole === 'admin') {
-    ['navUploadBtn', 'navAdminBtn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'inline-flex';
-    });
-    ['mobileUploadBtn', 'mobileAdminBtn'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'block';
-    });
-    ['bulkToggleBtn'].forEach(id => { // Bulk select button for desktop
+    ['mobileUploadBtn', 'mobileAdminBtn', 'bulkToggleBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'block';
     });
@@ -229,6 +242,14 @@ async function handleSignUp() {
   const pass  = document.getElementById('signUpPassword').value;
   const err   = document.getElementById('authError');
   err.textContent = '';
+
+  await loadAppSettings();
+  if (!appSettings.registrationOpen) {
+    err.style.color = 'var(--red)';
+    err.textContent = '🚫 New sign-ups are currently closed.';
+    return;
+  }
+
   if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
   try {

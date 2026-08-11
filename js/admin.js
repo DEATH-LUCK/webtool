@@ -265,16 +265,58 @@ async function loadLogsPane() {
 }
 
 // ⚙️ SETTINGS
-function loadSettingsPane() {
+async function loadSettingsPane() {
   const el = document.getElementById('adminPane_settings');
   if (!isSuperAdmin) { el.innerHTML = '<div class="empty-admin"><p class="muted">🔒 Superadmin access required to view settings.</p></div>'; return; }
-  el.innerHTML = `
-    <div class="admin-section">
-      <h4>System Settings</h4>
-      <p class="muted">Maintenance mode and registration controls coming soon.</p>
-      <button class="btn btn-primary" onclick="showToast('Settings saved', 'success')">Save Changes</button>
-    </div>
-  `;
+
+  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading settings...</p></div>';
+
+  try {
+    await loadAppSettings(); // refresh cached appSettings from Firestore
+
+    el.innerHTML = `
+      <div class="admin-section">
+        <h4>System Settings</h4>
+
+        <label class="settings-toggle">
+          <input type="checkbox" id="settingMaintenanceMode" ${appSettings.maintenanceMode ? 'checked' : ''}>
+          <span>🚧 Maintenance Mode — blocks sign-in for everyone except admins</span>
+        </label>
+
+        <label class="settings-toggle">
+          <input type="checkbox" id="settingRegistrationOpen" ${appSettings.registrationOpen ? 'checked' : ''}>
+          <span>📝 Allow New Sign-ups</span>
+        </label>
+
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="saveAppSettings()">Save Changes</button>
+      </div>
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error loading settings: ${e.message}</p></div>`;
+  }
+}
+
+async function saveAppSettings() {
+  if (!isSuperAdmin) { showToast('Only Superadmin can change settings.', 'error'); return; }
+  const maintenanceMode  = document.getElementById('settingMaintenanceMode').checked;
+  const registrationOpen = document.getElementById('settingRegistrationOpen').checked;
+
+  try {
+    await db.collection('settings').doc('app').set({
+      maintenanceMode,
+      registrationOpen,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: currentUser?.email || 'unknown'
+    }, { merge: true });
+
+    appSettings.maintenanceMode  = maintenanceMode;
+    appSettings.registrationOpen = registrationOpen;
+
+    await logAction(`SETTINGS UPDATED: maintenance=${maintenanceMode}, registrationOpen=${registrationOpen}`);
+    showToast('Settings saved', 'success');
+  } catch (e) {
+    showToast(`Error saving settings: ${e.message}`, 'error');
+  }
 }
 
 async function logAction(message) {
