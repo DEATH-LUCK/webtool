@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
   <title>My Library</title>
   <link rel="stylesheet" href="css/style.css">
+  <link href="https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -82,24 +83,60 @@
 ══════════════════════════════════════════════════════════ -->
 <div id="appPage">
 
-  <!-- Navbar -->
-  <nav class="navbar">
-    <div class="navbar-inner" style="position:relative;">
-      <div class="nav-logo" onclick="closeReader()">📚 My Library</div>
-      <!-- Menu trigger (unified for all screen sizes) -->
-      <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
-      <!-- Account / Nav Dropdown -->
-      <div class="mobile-menu" id="mobileMenu">
-        <div class="mobile-menu-email" id="mobileEmail"></div>
-        <button class="menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
-        <button class="menu-item" id="bulkToggleBtn" style="display:none" onclick="toggleBulkMode(); closeMobileMenu()">☑ Select</button>
-        <button class="menu-item" id="mobileAdminBtn"  style="display:none" onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
-        <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
-        <button class="menu-item danger" onclick="handleLogout()">Sign Out</button>
-      </div>
+  <!-- Sidebar -->
+  <div class="sidebar" id="appSidebar">
+    <div class="logo-details">
+      <i class='bx bxs-book-alt icon'></i>
+      <div class="logo_name">My Library</div>
+      <i class="bx bx-menu" id="sidebarToggleBtn" onclick="toggleSidebar()"></i>
     </div>
-  </nav>
+    <ul class="nav-list">
+      <li>
+        <a href="#" onclick="closeReader(); closeSidebarMobile(); return false;">
+          <i class='bx bx-grid-alt'></i>
+          <span class="links_name">Library</span>
+        </a>
+        <span class="tooltip">Library</span>
+      </li>
+      <li id="navLiUpload" style="display:none">
+        <a href="#" onclick="openUploadModal(); closeSidebarMobile(); return false;">
+          <i class='bx bx-upload'></i>
+          <span class="links_name">Upload Book</span>
+        </a>
+        <span class="tooltip">Upload Book</span>
+      </li>
+      <li id="navLiSelect" style="display:none">
+        <a href="#" id="bulkToggleBtn" onclick="toggleBulkMode(); closeSidebarMobile(); return false;">
+          <i class='bx bx-checkbox' id="bulkToggleIcon"></i>
+          <span class="links_name" id="bulkToggleLabel">Select</span>
+        </a>
+        <span class="tooltip">Select</span>
+      </li>
+      <li id="navLiAdmin" style="display:none">
+        <a href="#" onclick="openAdminPanel(); closeSidebarMobile(); return false;">
+          <i class='bx bx-shield-quarter'></i>
+          <span class="links_name">Admin Panel</span>
+        </a>
+        <span class="tooltip">Admin Panel</span>
+      </li>
+      <li>
+        <a href="#" id="themeToggleBtn" onclick="toggleTheme(); return false;">
+          <i class='bx bx-moon' id="themeToggleIcon"></i>
+          <span class="links_name" id="themeToggleLabel">Dark Mode</span>
+        </a>
+        <span class="tooltip">Theme</span>
+      </li>
+      <li class="profile">
+        <div class="profile-details">
+          <div class="profile-avatar" id="sidebarAvatar">?</div>
+          <div class="profile-email" id="mobileEmail"></div>
+        </div>
+        <i class="bx bx-log-out" id="sidebarLogout" onclick="handleLogout()" title="Sign Out"></i>
+      </li>
+    </ul>
+  </div>
 
+  <div class="app-main">
   <!-- Library View -->
   <div id="libraryView">
     <div class="container">
@@ -214,6 +251,7 @@
       <button class="mob-btn mob-btn-nav" id="nextMobile" onclick="changePage(1)" disabled>▶</button>
       <a class="mob-btn reader-download-btn" href="#" target="_blank">⬇</a>
     </div>
+  </div>
   </div>
 
 </div><!-- /#appPage -->
@@ -388,14 +426,5 @@
 <script src="js/reader.js"></script>
 <script src="js/admin.js"></script>
 
-<script>
-// Sync mobile email on login
-const _origShowApp = window.showApp;
-window.showApp = function() {
-  _origShowApp();
-  const mEmail = document.getElementById('mobileEmail');
-  if (mEmail && currentUser) mEmail.textContent = currentUser.email;
-};
-</script>
 </body>
 </html>
