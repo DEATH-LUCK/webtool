@@ -86,21 +86,13 @@
   <nav class="navbar">
     <div class="navbar-inner" style="position:relative;">
       <div class="nav-logo" onclick="closeReader()">📚 My Library</div>
-      <div class="nav-right" id="desktopNav">
-        <span class="nav-email" id="navEmail"></span>
-        <button class="btn btn-ghost btn-sm" id="navUploadBtn" style="display:none" onclick="openUploadModal()">＋ Upload</button>
-        <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" style="display:none" onclick="toggleBulkMode()">☑ Select</button>
-        <button class="btn btn-ghost btn-sm" id="navAdminBtn"  style="display:none" onclick="openAdminPanel()">⚙ Admin</button>
-        <button class="btn btn-ghost btn-sm" id="themeBtn" onclick="toggleTheme()">🌙</button>
-        <button class="btn btn-ghost btn-sm" onclick="handleLogout()">Sign Out</button>
-      </div>
-      <!-- Hamburger -->
+      <!-- Menu trigger (unified for all screen sizes) -->
       <button class="hamburger" id="hamburgerBtn" onclick="toggleMobileMenu()">☰</button>
-      <!-- Mobile Dropdown -->
-      <!-- Bulk actions will be desktop only for now -->
+      <!-- Account / Nav Dropdown -->
       <div class="mobile-menu" id="mobileMenu">
         <div class="mobile-menu-email" id="mobileEmail"></div>
         <button class="menu-item" id="mobileUploadBtn" style="display:none" onclick="openUploadModal(); closeMobileMenu()">＋ Upload Book</button>
+        <button class="menu-item" id="bulkToggleBtn" style="display:none" onclick="toggleBulkMode(); closeMobileMenu()">☑ Select</button>
         <button class="menu-item" id="mobileAdminBtn"  style="display:none" onclick="openAdminPanel(); closeMobileMenu()">⚙ Admin Panel</button>
         <button class="menu-item" id="mobileThemeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
         <button class="menu-item danger" onclick="handleLogout()">Sign Out</button>
