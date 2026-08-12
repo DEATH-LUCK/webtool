@@ -5,12 +5,13 @@ let allBooks     = [];
 let allFolders   = [];
 let currentView   = 'grid';
 let currentFolder = 'all';
+let currentSubFolder = 'all';
 
 // ── Load Books & Folders ──────────────────────────────────────
 async function loadBooks() {
   try {
     const fSnap = await db.collection('folders').get();
-    allFolders = fSnap.docs.map(d => d.id);
+    allFolders = fSnap.docs.map(d => ({ id: d.id, parent: d.data().parent || null }));
     const bSnap = await db.collection('books').orderBy('uploadedAt', 'desc').get();
     allBooks = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderBooks();
@@ -18,6 +19,47 @@ async function loadBooks() {
     console.error('loadBooks error:', e);
     renderBooks(); 
   }
+}
+
+// ── Category helpers (2-level: top-level category > sub-category) ─
+function getTopLevelFolders() { return allFolders.filter(f => !f.parent); }
+function getChildFolders(parentId) { return allFolders.filter(f => f.parent === parentId); }
+function buildCategoryOptionsHTML() {
+  let html = '<option value="General">📁 General</option>';
+  getTopLevelFolders().filter(f => f.id !== 'General').forEach(f => {
+    const children = getChildFolders(f.id);
+    if (children.length) {
+      html += `<optgroup label="📁 ${escapeHtml(f.id)}">`;
+      html += `<option value="${escapeHtml(f.id)}">📁 ${escapeHtml(f.id)} (general)</option>`;
+      children.forEach(c => { html += `<option value="${escapeHtml(c.id)}">— ${escapeHtml(c.id)}</option>`; });
+      html += `</optgroup>`;
+    } else {
+      html += `<option value="${escapeHtml(f.id)}">📁 ${escapeHtml(f.id)}</option>`;
+    }
+  });
+  return html;
+}
+
+// ── Shared filtering (search + 2-level folder match) ────────────
+function getFilteredBooks() {
+  const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+  return allBooks.filter(book => {
+    const matchSearch = !search ||
+      book.title?.toLowerCase().includes(search) ||
+      book.author?.toLowerCase().includes(search);
+    let matchFolder = true;
+    if (currentFolder !== 'all') {
+      if (currentSubFolder !== 'all') {
+        matchFolder = book.category === currentSubFolder;
+      } else if (book.category === currentFolder) {
+        matchFolder = true;
+      } else {
+        const bf = allFolders.find(f => f.id === book.category);
+        matchFolder = !!(bf && bf.parent === currentFolder);
+      }
+    }
+    return matchSearch && matchFolder;
+  });
 }
 
 // ── Render Books ──────────────────────────────────────────────
@@ -31,13 +73,7 @@ function renderBooks() {
   listEl.innerHTML = '';
   renderFolderChips();
 
-  const filtered = allBooks.filter(book => {
-    const matchSearch = !search ||
-      book.title?.toLowerCase().includes(search) ||
-      book.author?.toLowerCase().includes(search);
-    const matchFolder = currentFolder === 'all' || book.category === currentFolder;
-    return matchSearch && matchFolder;
-  });
+  const filtered = getFilteredBooks();
 
   if (filtered.length === 0) {
     emptyEl.style.display = 'block';
@@ -62,24 +98,61 @@ function renderBooks() {
   updateStats();
 }
 
-// ── Folder Chips ──────────────────────────────────────────────
+// ── Folder Chips (2-level: category + sub-category) ────────────
 function renderFolderChips() {
   const bar = document.getElementById('folderChipsBar');
   if (!bar) return;
-  const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
-  allFolders.forEach(f => bookFolders.add(f));
-  const folders = ['all', ...bookFolders];
   bar.style.display = 'flex';
   bar.innerHTML = '';
-  folders.forEach(folder => {
-    const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
+
+  // Row 1: top-level categories
+  const row1 = document.createElement('div');
+  row1.className = 'folder-chip-row';
+
+  const allChip = document.createElement('button');
+  allChip.className = 'folder-chip' + (currentFolder === 'all' ? ' active' : '');
+  allChip.innerHTML = '📚 All <span class="chip-count">' + allBooks.length + '</span>';
+  allChip.onclick = () => { currentFolder = 'all'; currentSubFolder = 'all'; renderBooks(); };
+  row1.appendChild(allChip);
+
+  getTopLevelFolders().forEach(f => {
+    const children = getChildFolders(f.id);
+    const idsInGroup = [f.id, ...children.map(c => c.id)];
+    const count = allBooks.filter(b => idsInGroup.includes(b.category)).length;
     const chip = document.createElement('button');
-    chip.className = 'folder-chip' + (currentFolder === folder ? ' active' : '');
-    chip.innerHTML = (folder === 'all' ? '📚 All' : '📁 ' + escapeHtml(folder)) +
-      ' <span class="chip-count">' + count + '</span>';
-    chip.onclick = () => { currentFolder = folder; renderBooks(); };
-    bar.appendChild(chip);
+    chip.className = 'folder-chip' + (currentFolder === f.id ? ' active' : '');
+    chip.innerHTML = '📁 ' + escapeHtml(f.id) + ' <span class="chip-count">' + count + '</span>';
+    chip.onclick = () => { currentFolder = f.id; currentSubFolder = 'all'; renderBooks(); };
+    row1.appendChild(chip);
   });
+  bar.appendChild(row1);
+
+  // Row 2: sub-categories of the selected top-level category (if it has any)
+  if (currentFolder !== 'all') {
+    const children = getChildFolders(currentFolder);
+    if (children.length) {
+      const row2 = document.createElement('div');
+      row2.className = 'folder-chip-row sub-row';
+
+      const idsInGroup = [currentFolder, ...children.map(c => c.id)];
+      const allSubChip = document.createElement('button');
+      allSubChip.className = 'folder-chip sub' + (currentSubFolder === 'all' ? ' active' : '');
+      allSubChip.innerHTML = 'All in ' + escapeHtml(currentFolder) +
+        ' <span class="chip-count">' + allBooks.filter(b => idsInGroup.includes(b.category)).length + '</span>';
+      allSubChip.onclick = () => { currentSubFolder = 'all'; renderBooks(); };
+      row2.appendChild(allSubChip);
+
+      children.forEach(c => {
+        const count = allBooks.filter(b => b.category === c.id).length;
+        const chip = document.createElement('button');
+        chip.className = 'folder-chip sub' + (currentSubFolder === c.id ? ' active' : '');
+        chip.innerHTML = escapeHtml(c.id) + ' <span class="chip-count">' + count + '</span>';
+        chip.onclick = () => { currentSubFolder = c.id; renderBooks(); };
+        row2.appendChild(chip);
+      });
+      bar.appendChild(row2);
+    }
+  }
 }
 
 // ── Grid Card — fully DOM-built to avoid innerHTML+= wiping nodes ─
@@ -356,17 +429,7 @@ async function openEditBookModal(bookId) {
   document.getElementById('editBookAuthor').value = book.author || '';
 
   const select = document.getElementById('editBookCategory');
-  select.innerHTML = '<option value="General">📁 General</option>';
-  try {
-    const snap = await db.collection('folders').get();
-    snap.docs.forEach(doc => {
-      if (doc.id !== 'General') {
-        const opt = document.createElement('option');
-        opt.value = doc.id; opt.textContent = '📁 ' + doc.id;
-        select.appendChild(opt);
-      }
-    });
-  } catch(e) {}
+  select.innerHTML = buildCategoryOptionsHTML();
   select.value = book.category || 'General';
 
   document.getElementById('editBookOverlay').classList.add('open');
@@ -475,14 +538,7 @@ function toggleBookSelect(bookId, checkbox) {
 }
 
 function toggleSelectAll() {
-  const visible = allBooks.filter(b => {
-    // Re-apply current filters to get only visible books
-    const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
-    const matchSearch = !search || b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
-    const matchFolder = currentFolder === 'all' || b.category === currentFolder;
-    return matchSearch && matchFolder;
-    // Note: This filter logic is duplicated from renderBooks. Consider refactoring.
-  });
+  const visible = getFilteredBooks();
   const allChecked = visible.every(b => bulkSelected.has(b.id));
   visible.forEach(b => allChecked ? bulkSelected.delete(b.id) : bulkSelected.add(b.id));
   document.querySelectorAll('.bulk-checkbox').forEach(cb => {
@@ -525,14 +581,8 @@ async function bulkMove() {
   const overlay = document.getElementById('bulkMoveOverlay');
   if (!overlay) return;
   const sel = document.getElementById('bulkFolderSelect');
-  sel.innerHTML = '<option value="" disabled selected>Choose folder…</option>'; // Default disabled option
-  // Ensure 'General' is always an option
-  if (!allFolders.includes('General')) allFolders.unshift('General');
-  allFolders.sort().forEach(f => { // Sort folders alphabetically
-    const o = document.createElement('option');
-    o.value = f; o.textContent = '📁 ' + f; sel.appendChild(o);
-  });
-  overlay.style.display = 'flex';
+  sel.innerHTML = buildCategoryOptionsHTML();
+  overlay.classList.add('open');
 }
 
 async function confirmBulkMove() {
@@ -555,7 +605,7 @@ async function confirmBulkMove() {
 }
 function closeBulkMove() {
   const o = document.getElementById('bulkMoveOverlay');
-  if (o) o.style.display = 'none';
+  if (o) o.classList.remove('open');
 }
 
 // ── Cover Helpers ────────────────────────────────────────────
