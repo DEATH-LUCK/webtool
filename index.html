@@ -181,7 +181,6 @@
             <p style="margin-bottom:10px;">Select a folder to move the books to:</p>
             <div class="folder-input-group">
               <select id="bulkFolderSelect"></select>
-              <button type="button" class="btn-tool" onclick="createFolderInUpload()" title="Create New Folder">➕</button>
             </div>
           </div>
           <div class="modal-actions">
@@ -214,6 +213,29 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeEditBookModal()">Cancel</button>
         <button class="btn btn-primary" onclick="saveEditBook()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div class="modal-overlay" id="categoryModalOverlay" style="z-index:1001;">
+    <div class="modal">
+      <div class="modal-title" id="categoryModalTitle">New Category</div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" id="categoryModalName" placeholder="e.g. Apps, Games, Music...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parent (optional)</label>
+          <select id="categoryModalParent">
+            <option value="">— Top Level —</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeCategoryModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCategoryModal()">Save</button>
       </div>
     </div>
   </div>
@@ -298,13 +320,11 @@
       <input type="text" id="bookAuthor" placeholder="Author name (optional)">
     </div>
     <div class="form-group">
-      <label class="form-label">Archive / Folder</label>
+      <label class="form-label">Category</label>
       <div class="folder-input-group">
         <select id="bookFolder"></select>
-        <button type="button" class="btn-tool" onclick="createFolderInUpload()" title="Create New Folder">➕</button>
-        <button type="button" class="btn-tool" onclick="renameSelectedFolder()" title="Rename Folder">✏️</button>
-        <button type="button" class="btn-tool btn-danger" onclick="deleteSelectedFolder()" title="Delete Folder">🗑</button>
       </div>
+      <p class="muted" style="font-size:.7rem;margin-top:6px;">Manage categories from Admin Panel → ✏️ Edit</p>
     </div>
     <!-- Progress -->
     <div id="uploadProgress" style="display:none;" class="progress-wrap">
