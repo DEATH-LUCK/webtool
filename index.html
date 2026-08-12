@@ -98,20 +98,6 @@
         </a>
         <span class="tooltip">Library</span>
       </li>
-      <li id="navLiUpload" style="display:none">
-        <a href="#" onclick="openUploadModal(); closeSidebarMobile(); return false;">
-          <i class='bx bx-upload'></i>
-          <span class="links_name">Upload Book</span>
-        </a>
-        <span class="tooltip">Upload Book</span>
-      </li>
-      <li id="navLiSelect" style="display:none">
-        <a href="#" id="bulkToggleBtn" onclick="toggleBulkMode(); closeSidebarMobile(); return false;">
-          <i class='bx bx-checkbox' id="bulkToggleIcon"></i>
-          <span class="links_name" id="bulkToggleLabel">Select</span>
-        </a>
-        <span class="tooltip">Select</span>
-      </li>
       <li id="navLiAdmin" style="display:none">
         <a href="#" onclick="openAdminPanel(); closeSidebarMobile(); return false;">
           <i class='bx bx-shield-quarter'></i>
@@ -169,14 +155,6 @@
       <!-- Folder Navigation (primary browsing) -->
       <div class="folder-chips-bar" id="folderChipsBar"></div>
 
-      <!-- Type Filter (secondary, applies within folder selection) -->
-      <div class="filter-tabs">
-        <button class="filter-tab active" onclick="setFilter('all', this)">All Types</button>
-        <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
-        <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
-        <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
-      </div>
-
       <!-- Books -->
       <div id="booksGrid" class="books-grid"></div>
       <div id="booksListView" class="books-list" style="display:none;"></div>
@@ -211,6 +189,31 @@
             <button class="btn btn-primary" onclick="confirmBulkMove()">Move</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Book Overlay -->
+  <div class="modal-overlay" id="editBookOverlay" style="z-index:1001;">
+    <div class="modal">
+      <div class="modal-title">Edit Item</div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Title</label>
+          <input type="text" id="editBookTitle" placeholder="Title">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Author / Publisher</label>
+          <input type="text" id="editBookAuthor" placeholder="Author">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select id="editBookCategory"></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeEditBookModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditBook()">Save</button>
       </div>
     </div>
   </div>
@@ -270,7 +273,7 @@
       onclick="document.getElementById('fileInput').click()">
       <div class="dropzone-icon">📄</div>
       <div class="dropzone-text">Drop file here or click to browse</div>
-      <div class="dropzone-sub">Books, Software, Music & Video (max 500MB)</div>
+      <div class="dropzone-sub">Books, Software, Music & Video — any size</div>
     </div>
     <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
     
@@ -382,7 +385,7 @@
     <div class="admin-tabs">
       <button class="admin-tab-btn active" onclick="showAdminTab('dash', this)">📊 Dash</button>
       <button class="admin-tab-btn" onclick="showAdminTab('users', this)">👥 Users</button>
-      <button class="admin-tab-btn" onclick="showAdminTab('folders', this)">📁 Archives</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('folders', this)">✏️ Edit</button>
       <button class="admin-tab-btn" onclick="showAdminTab('logs', this)">📜 Logs</button>
       <button class="admin-tab-btn" onclick="showAdminTab('settings', this)">⚙️ Settings</button>
     </div>
