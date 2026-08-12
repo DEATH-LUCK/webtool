@@ -189,7 +189,7 @@ async function deleteUser(uid) {
   }
 }
 
-// 📁 FOLDER MANAGER
+// 📁 FOLDER MANAGER (Categories)
 async function loadFoldersPane() {
   const el = document.getElementById('adminPane_folders');
   el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading archives...</p></div>'; // Show spinner
@@ -201,22 +201,34 @@ async function loadFoldersPane() {
     ]);
     const allBooksData = bSnap.docs.map(d => d.data());
 
-    let html = '<h4>Manage Archives</h4>';
+    let html = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h4 style="margin:0;">Manage Categories</h4>
+        <button class="btn btn-primary btn-sm" onclick="createCategoryAdmin()">➕ New Category</button>
+      </div>
+    `;
     if (fSnap.empty) {
-      html += '<p class="muted">No custom archives created yet.</p>';
+      html += '<p class="muted">No categories created yet. Click "New Category" to add one — e.g. Books, Apps &amp; Games, Music &amp; Videos.</p>';
     }
     
     fSnap.docs.forEach(doc => {
       const count = allBooksData.filter(b => b.category === doc.id).length;
+      const isGeneral = doc.id === 'General';
       html += `
         <div class="folder-card">
           <div class="folder-card-header">
             <div class="folder-card-left">
               <span class="folder-card-icon">📁</span>
               <div class="folder-card-meta">
-                <span class="folder-card-name">${doc.id}</span>
-                <span class="folder-card-count">${count} books</span>
+                <span class="folder-card-name">${escapeHtml(doc.id)}</span>
+                <span class="folder-card-count">${count} items</span>
               </div>
+            </div>
+            <div class="folder-card-actions">
+              ${isGeneral ? '' : `
+                <button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${doc.id.replace(/'/g,"\\'")}')">✏ Rename</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${doc.id.replace(/'/g,"\\'")}')">🗑</button>
+              `}
             </div>
           </div>
         </div>
@@ -226,6 +238,58 @@ async function loadFoldersPane() {
   } catch (e) {
     el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error: ${e.message}</p></div>`;
   }
+}
+
+async function createCategoryAdmin() {
+  const name = await showPrompt("New Category", "e.g. Books, Apps & Games, Music & Videos...");
+  if (!name) return;
+  const catName = name.trim();
+  if (!catName) return;
+  try {
+    await db.collection('folders').doc(catName).set({
+      name: catName,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await logAction(`CATEGORY CREATED: ${catName}`);
+    showToast(`📁 "${catName}" created!`, 'success');
+    await loadFoldersPane();
+    if (typeof loadBooks === 'function') await loadBooks();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function renameCategoryAdmin(oldName) {
+  const newName = await showPrompt("Rename Category", "Enter new name...", oldName);
+  if (!newName || newName.trim() === oldName) return;
+  const trimmedNew = newName.trim();
+  try {
+    const batch = db.batch();
+    batch.set(db.collection('folders').doc(trimmedNew), {
+      name: trimmedNew, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    batch.delete(db.collection('folders').doc(oldName));
+    const booksSnap = await db.collection('books').where('category', '==', oldName).get();
+    booksSnap.forEach(doc => batch.update(doc.ref, { category: trimmedNew }));
+    await batch.commit();
+    await logAction(`CATEGORY RENAMED: ${oldName} → ${trimmedNew}`);
+    showToast(`Renamed to "${trimmedNew}".`, 'success');
+    await loadFoldersPane();
+    if (typeof loadBooks === 'function') await loadBooks();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteCategoryAdmin(name) {
+  if (!await showConfirm("Delete Category", `Delete "${name}"? Its items will be moved to "General".`)) return;
+  try {
+    const batch = db.batch();
+    batch.delete(db.collection('folders').doc(name));
+    const booksSnap = await db.collection('books').where('category', '==', name).get();
+    booksSnap.forEach(doc => batch.update(doc.ref, { category: 'General' }));
+    await batch.commit();
+    await logAction(`CATEGORY DELETED: ${name}`);
+    showToast('Category deleted. Items moved to General.', 'success');
+    await loadFoldersPane();
+    if (typeof loadBooks === 'function') await loadBooks();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 // 📜 LOGS
@@ -288,6 +352,11 @@ async function loadSettingsPane() {
           <span>📝 Allow New Sign-ups</span>
         </label>
 
+        <label class="settings-toggle">
+          <input type="checkbox" id="settingAutoApprove" ${appSettings.autoApproveSignups ? 'checked' : ''}>
+          <span>✅ Auto-Approve New Sign-ups (skip manual approval)</span>
+        </label>
+
         <button class="btn btn-primary" style="margin-top:14px;" onclick="saveAppSettings()">Save Changes</button>
       </div>
     `;
@@ -298,21 +367,24 @@ async function loadSettingsPane() {
 
 async function saveAppSettings() {
   if (!isSuperAdmin) { showToast('Only Superadmin can change settings.', 'error'); return; }
-  const maintenanceMode  = document.getElementById('settingMaintenanceMode').checked;
-  const registrationOpen = document.getElementById('settingRegistrationOpen').checked;
+  const maintenanceMode    = document.getElementById('settingMaintenanceMode').checked;
+  const registrationOpen   = document.getElementById('settingRegistrationOpen').checked;
+  const autoApproveSignups = document.getElementById('settingAutoApprove').checked;
 
   try {
     await db.collection('settings').doc('app').set({
       maintenanceMode,
       registrationOpen,
+      autoApproveSignups,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: currentUser?.email || 'unknown'
     }, { merge: true });
 
-    appSettings.maintenanceMode  = maintenanceMode;
-    appSettings.registrationOpen = registrationOpen;
+    appSettings.maintenanceMode    = maintenanceMode;
+    appSettings.registrationOpen   = registrationOpen;
+    appSettings.autoApproveSignups = autoApproveSignups;
 
-    await logAction(`SETTINGS UPDATED: maintenance=${maintenanceMode}, registrationOpen=${registrationOpen}`);
+    await logAction(`SETTINGS UPDATED: maintenance=${maintenanceMode}, registrationOpen=${registrationOpen}, autoApprove=${autoApproveSignups}`);
     showToast('Settings saved', 'success');
   } catch (e) {
     showToast(`Error saving settings: ${e.message}`, 'error');

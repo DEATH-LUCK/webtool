@@ -37,7 +37,7 @@ function renderBooks() {
       book.title?.toLowerCase().includes(search) ||
       book.author?.toLowerCase().includes(search);
     const matchFilter =
-      currentFilter === 'all' || currentFilter === 'folders' ||
+      currentFilter === 'all' ||
       (currentFilter === 'pdf'   && book.fileType === 'pdf') ||
       (currentFilter === 'epub'  && book.fileType === 'epub') ||
       (currentFilter === 'other' && !['pdf','epub'].includes(book.fileType));
@@ -75,7 +75,7 @@ function renderFolderChips() {
   const bookFolders = new Set(allBooks.map(b => b.category).filter(Boolean));
   allFolders.forEach(f => bookFolders.add(f));
   const folders = ['all', ...bookFolders];
-  bar.style.display = currentFilter === 'folders' ? 'flex' : 'none';
+  bar.style.display = 'flex';
   bar.innerHTML = '';
   folders.forEach(folder => {
     const count = folder === 'all' ? allBooks.length : allBooks.filter(b => b.category === folder).length;
@@ -150,19 +150,20 @@ function createGridCard(book, index) {
   readBtn.className   = 'btn btn-primary btn-sm';
   readBtn.textContent = 'Read';
   readBtn.onclick     = () => openBook(book.id);
-
-  const dlLink = document.createElement('a');
-  dlLink.className  = 'btn btn-ghost btn-sm';
-  dlLink.href       = book.downloadUrl;
-  dlLink.target     = '_blank';
-  dlLink.rel        = 'noopener';
-  dlLink.title      = 'Download';
-  dlLink.textContent = '⬇';
-
   actionsDiv.appendChild(readBtn);
-  actionsDiv.appendChild(dlLink);
 
-  if (currentRole === 'admin') {
+  // Download/Delete only shown in admin edit (Select) mode — kept out of the default browsing view
+  if (bulkMode && currentRole === 'admin') {
+    const dlLink = document.createElement('a');
+    dlLink.className  = 'btn btn-ghost btn-sm';
+    dlLink.href       = book.downloadUrl;
+    dlLink.target     = '_blank';
+    dlLink.rel        = 'noopener';
+    dlLink.title      = 'Download';
+    dlLink.textContent = '⬇';
+    dlLink.onclick = (e) => e.stopPropagation();
+    actionsDiv.appendChild(dlLink);
+
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn-icon btn-danger';
     delBtn.title       = 'Delete';
@@ -238,18 +239,18 @@ function createListItem(book, index) {
   readBtn.className   = 'btn btn-primary btn-sm';
   readBtn.textContent = '📖 Read';
   readBtn.onclick     = () => openBook(book.id);
-
-  const dlLink = document.createElement('a');
-  dlLink.className   = 'btn btn-ghost btn-sm';
-  dlLink.href        = book.downloadUrl;
-  dlLink.target      = '_blank';
-  dlLink.rel         = 'noopener';
-  dlLink.textContent = '⬇';
-
   actionsDiv.appendChild(readBtn);
-  actionsDiv.appendChild(dlLink);
 
-  if (currentRole === 'admin') {
+  if (bulkMode && currentRole === 'admin') {
+    const dlLink = document.createElement('a');
+    dlLink.className   = 'btn btn-ghost btn-sm';
+    dlLink.href        = book.downloadUrl;
+    dlLink.target      = '_blank';
+    dlLink.rel         = 'noopener';
+    dlLink.textContent = '⬇';
+    dlLink.onclick = (e) => e.stopPropagation();
+    actionsDiv.appendChild(dlLink);
+
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn btn-danger btn-sm';
     delBtn.textContent = '🗑 Delete';
@@ -332,7 +333,6 @@ function setView(view, btn) {
 }
 function setFilter(filter, btn) {
   currentFilter = filter;
-  if (filter !== 'folders') currentFolder = 'all';
   document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   renderBooks();
@@ -380,7 +380,12 @@ function showToast(msg, type) {
 
 // ── Helpers ───────────────────────────────────────────────────
 function getFileIcon(type) {
-  const icons = { pdf: '📕', epub: '📗', txt: '📄', doc: '📝', docx: '📝' };
+  const icons = {
+    pdf: '📕', epub: '📗', txt: '📄', doc: '📝', docx: '📝',
+    apk: '📱', exe: '💻', zip: '🗜️', rar: '🗜️', '7z': '🗜️',
+    mp3: '🎵', wav: '🎵',
+    mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬'
+  };
   return icons[type] || '📁';
 }
 function escapeHtml(str) {
@@ -424,7 +429,7 @@ function toggleSelectAll() {
     // Re-apply current filters to get only visible books
     const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
     const matchSearch = !search || b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
-    const matchFilter = currentFilter === 'all' || currentFilter === 'folders' ||
+    const matchFilter = currentFilter === 'all' ||
       (currentFilter === 'pdf' && b.fileType === 'pdf') ||
       (currentFilter === 'epub' && b.fileType === 'epub') ||
       (currentFilter === 'other' && !['pdf','epub'].includes(b.fileType));
