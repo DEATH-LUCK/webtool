@@ -839,6 +839,9 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 .folder-card-count {
   font-size: .7rem; color: var(--cream3); display: block; margin-top: 1px;
 }
+.folder-card-actions{
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
 .folder-chevron {
   font-size: 1rem; color: var(--cream3); flex-shrink: 0;
   display: inline-block; transition: transform .22s var(--spring);
