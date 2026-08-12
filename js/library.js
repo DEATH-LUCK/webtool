@@ -4,7 +4,6 @@
 let allBooks     = [];
 let allFolders   = [];
 let currentView   = 'grid';
-let currentFilter = 'all';
 let currentFolder = 'all';
 
 // ── Load Books & Folders ──────────────────────────────────────
@@ -36,13 +35,8 @@ function renderBooks() {
     const matchSearch = !search ||
       book.title?.toLowerCase().includes(search) ||
       book.author?.toLowerCase().includes(search);
-    const matchFilter =
-      currentFilter === 'all' ||
-      (currentFilter === 'pdf'   && book.fileType === 'pdf') ||
-      (currentFilter === 'epub'  && book.fileType === 'epub') ||
-      (currentFilter === 'other' && !['pdf','epub'].includes(book.fileType));
     const matchFolder = currentFolder === 'all' || book.category === currentFolder;
-    return matchSearch && matchFilter && matchFolder;
+    return matchSearch && matchFolder;
   });
 
   if (filtered.length === 0) {
@@ -152,7 +146,7 @@ function createGridCard(book, index) {
   readBtn.onclick     = () => openBook(book.id);
   actionsDiv.appendChild(readBtn);
 
-  // Download/Delete only shown in admin edit (Select) mode — kept out of the default browsing view
+  // Download/Edit/Delete only shown in admin edit (Select) mode — kept out of the default browsing view
   if (bulkMode && currentRole === 'admin') {
     const dlLink = document.createElement('a');
     dlLink.className  = 'btn btn-ghost btn-sm';
@@ -163,6 +157,13 @@ function createGridCard(book, index) {
     dlLink.textContent = '⬇';
     dlLink.onclick = (e) => e.stopPropagation();
     actionsDiv.appendChild(dlLink);
+
+    const editBtn = document.createElement('button');
+    editBtn.className   = 'btn-icon icon-edit';
+    editBtn.title       = 'Edit';
+    editBtn.textContent = '✏';
+    editBtn.onclick = (e) => { e.stopPropagation(); openEditBookModal(book.id); };
+    actionsDiv.appendChild(editBtn);
 
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn-icon btn-danger';
@@ -251,6 +252,12 @@ function createListItem(book, index) {
     dlLink.onclick = (e) => e.stopPropagation();
     actionsDiv.appendChild(dlLink);
 
+    const editBtn = document.createElement('button');
+    editBtn.className   = 'btn btn-ghost btn-sm';
+    editBtn.textContent = '✏ Edit';
+    editBtn.onclick = (e) => { e.stopPropagation(); openEditBookModal(book.id); };
+    actionsDiv.appendChild(editBtn);
+
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn btn-danger btn-sm';
     delBtn.textContent = '🗑 Delete';
@@ -331,17 +338,60 @@ function setView(view, btn) {
   if (btn) btn.classList.add('active');
   renderBooks();
 }
-function setFilter(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderBooks();
-}
 
 // ── Open Book ─────────────────────────────────────────────────
 function openBook(bookId) {
   const book = allBooks.find(b => b.id === bookId);
   if (book) openReader(book);
+}
+
+// ── Edit Book ─────────────────────────────────────────────────
+let editTargetId = null;
+async function openEditBookModal(bookId) {
+  const book = allBooks.find(b => b.id === bookId);
+  if (!book) return;
+  editTargetId = bookId;
+
+  document.getElementById('editBookTitle').value  = book.title || '';
+  document.getElementById('editBookAuthor').value = book.author || '';
+
+  const select = document.getElementById('editBookCategory');
+  select.innerHTML = '<option value="General">📁 General</option>';
+  try {
+    const snap = await db.collection('folders').get();
+    snap.docs.forEach(doc => {
+      if (doc.id !== 'General') {
+        const opt = document.createElement('option');
+        opt.value = doc.id; opt.textContent = '📁 ' + doc.id;
+        select.appendChild(opt);
+      }
+    });
+  } catch(e) {}
+  select.value = book.category || 'General';
+
+  document.getElementById('editBookOverlay').classList.add('open');
+}
+function closeEditBookModal() {
+  document.getElementById('editBookOverlay').classList.remove('open');
+  editTargetId = null;
+}
+async function saveEditBook() {
+  if (!editTargetId) return;
+  const title    = document.getElementById('editBookTitle').value.trim();
+  const author   = document.getElementById('editBookAuthor').value.trim();
+  const category = document.getElementById('editBookCategory').value;
+  if (!title) { showToast('Title cannot be empty.', 'error'); return; }
+
+  try {
+    await db.collection('books').doc(editTargetId).update({ title, author: author || null, category });
+    const idx = allBooks.findIndex(b => b.id === editTargetId);
+    if (idx !== -1) allBooks[idx] = { ...allBooks[idx], title, author: author || null, category };
+    closeEditBookModal();
+    renderBooks();
+    showToast('Item updated.', 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 
 // ── Delete ────────────────────────────────────────────────────
@@ -412,7 +462,7 @@ function toggleBulkMode() {
   const btn = document.getElementById('bulkToggleBtn');
   const icon = document.getElementById('bulkToggleIcon');
   const label = document.getElementById('bulkToggleLabel');
-  if (label) label.textContent = bulkMode ? 'Cancel Select' : 'Select';
+  if (label) label.textContent = bulkMode ? 'Exit Select / Edit Mode' : 'Select / Edit Mode';
   if (icon)  icon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
   if (btn)   btn.classList.toggle('active-bulk', bulkMode);
   renderBooks();
@@ -429,12 +479,8 @@ function toggleSelectAll() {
     // Re-apply current filters to get only visible books
     const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
     const matchSearch = !search || b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
-    const matchFilter = currentFilter === 'all' ||
-      (currentFilter === 'pdf' && b.fileType === 'pdf') ||
-      (currentFilter === 'epub' && b.fileType === 'epub') ||
-      (currentFilter === 'other' && !['pdf','epub'].includes(b.fileType));
     const matchFolder = currentFolder === 'all' || b.category === currentFolder;
-    return matchSearch && matchFilter && matchFolder;
+    return matchSearch && matchFolder;
     // Note: This filter logic is duplicated from renderBooks. Consider refactoring.
   });
   const allChecked = visible.every(b => bulkSelected.has(b.id));

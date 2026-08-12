@@ -3,7 +3,7 @@
 // ============================================================
 
 let selectedFile = null;
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB Limit (raised to fit software/video files)
+// No file size limit — uploads are unrestricted in size
 
 function openUploadModal() {
   if (currentRole !== 'admin') { showToast('Admins only.', 'error'); return; }
@@ -148,11 +148,6 @@ function handleFileSelect(e) { if (e.target.files.length > 0) processFile(e.targ
 
 async function processFile(file) {
   if (!file.name.match(/\.(pdf|epub|txt|doc|docx|apk|exe|zip|rar|7z|mp3|mp4|mkv|wav|avi|mov)$/i)) { showToast('Unsupported file type.', 'error'); return; }
-  
-  if (file.size > MAX_FILE_SIZE) {
-    showToast('File too large. Max 50MB allowed.', 'error');
-    return;
-  }
 
   selectedFile = file;
   

@@ -189,10 +189,10 @@ async function deleteUser(uid) {
   }
 }
 
-// 📁 FOLDER MANAGER (Categories)
+// ✏️ EDIT SECTION (Upload, Select/Bulk mode, Category management)
 async function loadFoldersPane() {
   const el = document.getElementById('adminPane_folders');
-  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading archives...</p></div>'; // Show spinner
+  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading...</p></div>'; // Show spinner
   
   try {
     const [bSnap, fSnap] = await Promise.all([
@@ -202,6 +202,18 @@ async function loadFoldersPane() {
     const allBooksData = bSnap.docs.map(d => d.data());
 
     let html = `
+      <div class="admin-section" style="margin-bottom:16px;">
+        <h4 style="margin-bottom:10px;">Content Tools</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="closeAdminPanel(); openUploadModal();">⬆ Upload Book</button>
+          <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" onclick="toggleBulkMode()">
+            <i class="bx bx-checkbox" id="bulkToggleIcon" style="vertical-align:middle;"></i>
+            <span id="bulkToggleLabel">Select / Edit Mode</span>
+          </button>
+        </div>
+        <p class="muted" style="font-size:.72rem;margin-top:8px;">Select / Edit Mode adds checkboxes and per-item Edit/Delete/Download controls on book cards in the Library — close this panel after enabling it to use them.</p>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <h4 style="margin:0;">Manage Categories</h4>
         <button class="btn btn-primary btn-sm" onclick="createCategoryAdmin()">➕ New Category</button>
@@ -235,6 +247,14 @@ async function loadFoldersPane() {
       `;
     });
     el.innerHTML = html;
+
+    // Sync the button's visual state with the current bulk mode
+    const label = document.getElementById('bulkToggleLabel');
+    const icon  = document.getElementById('bulkToggleIcon');
+    const btn   = document.getElementById('bulkToggleBtn');
+    if (label) label.textContent = bulkMode ? 'Exit Select / Edit Mode' : 'Select / Edit Mode';
+    if (icon)  icon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
+    if (btn)   btn.classList.toggle('active-bulk', bulkMode);
   } catch (e) {
     el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error: ${e.message}</p></div>`;
   }
