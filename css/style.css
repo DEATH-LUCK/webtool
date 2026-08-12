@@ -487,6 +487,12 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 }
 .modal-overlay.open,.upload-modal-overlay.open,.admin-overlay.open{display:flex; z-index:1100;}
 
+/* Sub-dialogs (prompts, confirms, category/edit/move) must always appear above the Admin Panel */
+#promptModal.open, #confirmModal.open, #deleteModal.open,
+#categoryModalOverlay.open, #editBookOverlay.open, #bulkMoveOverlay.open {
+  z-index:1200;
+}
+
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 
 .modal{
