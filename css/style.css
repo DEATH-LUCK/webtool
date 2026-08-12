@@ -151,7 +151,7 @@ select option{background:var(--ink2)}
 .sidebar.open .logo-details .icon,
 .sidebar.open .logo-details .logo_name{opacity:1;transition-delay:.12s}
 .sidebar .logo-details #sidebarToggleBtn{
-  position:absolute;right:15px;top:50%;transform:translateY(-50%);
+  position:absolute;right:8px;top:50%;transform:translateY(-50%);
   font-size:1.35rem;color:var(--cream3);cursor:pointer;transition:color .2s;
 }
 .sidebar .logo-details #sidebarToggleBtn:hover{color:var(--amber)}
@@ -336,9 +336,11 @@ select option{background:var(--ink2)}
 
 /* ─── Folder Chips ───────────────────────────────────────────── */
 .folder-chips-bar{
-  display:none;flex-wrap:wrap;gap:7px;
+  display:none;flex-direction:column;gap:8px;
   padding:13px 0 17px;border-bottom:1px solid var(--line);margin-bottom:18px;
 }
+.folder-chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.folder-chip-row.sub-row{padding-left:4px;border-left:2px solid var(--line2)}
 .folder-chip{
   background:var(--ink3);border:1px solid var(--line);
   color:var(--cream2);border-radius:20px;padding:5px 14px;
@@ -347,6 +349,7 @@ select option{background:var(--ink2)}
 }
 .folder-chip:hover{border-color:var(--amber);color:var(--amber)}
 .folder-chip.active{border-color:var(--amber);color:var(--amber);background:var(--amber-fog)}
+.folder-chip.sub{padding:4px 12px;font-size:.72rem;opacity:.9}
 .chip-count{
   background:var(--ink4);border-radius:10px;
   padding:1px 7px;font-size:.63rem;color:var(--cream3);
@@ -846,6 +849,14 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 .folder-card-actions{
   display:flex;align-items:center;gap:6px;flex-shrink:0;
 }
+.folder-card-children{
+  border-top:1px solid var(--line);margin-top:10px;padding-top:8px;
+}
+.folder-subrow{
+  display:flex;align-items:center;gap:10px;padding:6px 4px 6px 18px;
+  font-size:.8rem;
+}
+.folder-subrow-name{flex:1;min-width:0;color:var(--cream2)}
 .folder-chevron {
   font-size: 1rem; color: var(--cream3); flex-shrink: 0;
   display: inline-block; transition: transform .22s var(--spring);
