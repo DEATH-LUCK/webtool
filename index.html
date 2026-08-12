@@ -166,17 +166,16 @@
         <div class="stat-item"><span class="stat-num" id="statOther">0</span><span class="stat-label">Other</span></div>
       </div>
 
-      <!-- Filter Tabs -->
+      <!-- Folder Navigation (primary browsing) -->
+      <div class="folder-chips-bar" id="folderChipsBar"></div>
+
+      <!-- Type Filter (secondary, applies within folder selection) -->
       <div class="filter-tabs">
-        <button class="filter-tab active" onclick="setFilter('all', this)">All</button>
+        <button class="filter-tab active" onclick="setFilter('all', this)">All Types</button>
         <button class="filter-tab" onclick="setFilter('pdf', this)">PDF</button>
         <button class="filter-tab" onclick="setFilter('epub', this)">EPUB</button>
         <button class="filter-tab" onclick="setFilter('other', this)">Other</button>
-        <button class="filter-tab" onclick="setFilter('folders', this)">📁 Folders</button>
       </div>
-
-      <!-- Folder Chips (shown when Folders tab active) -->
-      <div class="folder-chips-bar" id="folderChipsBar"></div>
 
       <!-- Books -->
       <div id="booksGrid" class="books-grid"></div>
@@ -271,7 +270,7 @@
       onclick="document.getElementById('fileInput').click()">
       <div class="dropzone-icon">📄</div>
       <div class="dropzone-text">Drop file here or click to browse</div>
-      <div class="dropzone-sub">Supports PDF, EPUB, TXT, DOC, DOCX (max 50MB)</div>
+      <div class="dropzone-sub">Books, Software, Music & Video (max 500MB)</div>
     </div>
     <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
     
