@@ -247,19 +247,23 @@
     </div>
   </div>
 
-  <!-- Reader View -->
+  <!-- Separate top-menu Library page (independent from Book Library) -->
   <div id="separateLibraryPage" style="display:none;">
-  <div class="separate-library-page">
-    <div class="separate-library-header">
-      <button class="btn btn-ghost btn-sm" onclick="closeLibraryPage()">← Back</button>
-      <div><h2>📚 Library</h2><p>Software, entertainment and archive</p></div>
+    <div class="separate-library-page">
+      <div class="separate-library-header">
+        <button class="btn btn-ghost btn-sm" onclick="closeLibraryPage()">← Back</button>
+        <div>
+          <h2>📚 Library</h2>
+          <p>Software, entertainment and archive</p>
+        </div>
+      </div>
+      <div id="separateLibraryBreadcrumb" class="separate-library-breadcrumb"></div>
+      <div id="separateLibraryGrid" class="separate-library-grid"></div>
     </div>
-    <div id="separateLibraryBreadcrumb" class="separate-library-breadcrumb"></div>
-    <div id="separateLibraryGrid" class="separate-library-grid"></div>
   </div>
-</div>
 
-<div id="readerView" style="display:none;">
+  <!-- Reader View -->
+  <div id="readerView" style="display:none;">
     <!-- Desktop Toolbar -->
     <div class="reader-toolbar">
       <button class="btn btn-ghost btn-sm" onclick="closeReader()">← Back</button>
@@ -443,6 +447,7 @@
 
       <!-- Other Panes -->
       <div id="adminPane_folders" class="admin-tab-pane" style="display:none;"></div>
+      <div id="adminPane_library" class="admin-tab-pane" style="display:none;"></div>
       <div id="adminPane_logs" class="admin-tab-pane" style="display:none;"></div>
       <div id="adminPane_settings" class="admin-tab-pane" style="display:none;"></div>
     </div>
