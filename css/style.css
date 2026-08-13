@@ -69,7 +69,6 @@ body::after{
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 110% 70% at 50% 100%,rgba(0,0,0,.35) 0%,transparent 70%);
 }
-body > * { position:relative; }
 a{color:inherit;text-decoration:none}
 button{font-family:var(--f-body);cursor:pointer}
 input,select,textarea{
@@ -481,17 +480,35 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 /* ─── Modals ─────────────────────────────────────────────────── */
 .modal-overlay,.upload-modal-overlay,.admin-overlay{
   display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.8);z-index:1000;
+  background:rgba(0,0,0,.8);z-index:3000;
   align-items:center;justify-content:center;padding:20px;
   backdrop-filter:blur(5px);
 }
-.modal-overlay.open,.upload-modal-overlay.open,.admin-overlay.open{display:flex; z-index:1100;}
 
-/* Sub-dialogs (prompts, confirms, category/edit/move) must always appear above the Admin Panel */
+/* Admin panel is a dedicated top-level layer. Nothing on the page may
+   paint above it while it is open. */
+.admin-overlay.open{
+  display:flex !important;
+  z-index:5000 !important;
+}
+#adminPanel .admin-panel{
+  position:relative;
+  z-index:5001;
+}
+
+/* Normal dialogs sit above the page, and admin sub-dialogs sit above the
+   admin panel itself. */
+.modal-overlay.open,.upload-modal-overlay.open{
+  display:flex !important;
+  z-index:6000 !important;
+}
 #promptModal.open, #confirmModal.open, #deleteModal.open,
 #categoryModalOverlay.open, #editBookOverlay.open, #bulkMoveOverlay.open {
-  z-index:2000;
+  z-index:7000 !important;
 }
+
+/* Toast must remain visible even when a modal is open. */
+.toast{z-index:8000 !important;}
 
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 
