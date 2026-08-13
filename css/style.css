@@ -69,7 +69,7 @@ body::after{
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 110% 70% at 50% 100%,rgba(0,0,0,.35) 0%,transparent 70%);
 }
-body > * { position:relative; }
+body > * { position:relative; z-index:1; }
 a{color:inherit;text-decoration:none}
 button{font-family:var(--f-body);cursor:pointer}
 input,select,textarea{
@@ -490,17 +490,7 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 /* Sub-dialogs (prompts, confirms, category/edit/move) must always appear above the Admin Panel */
 #promptModal.open, #confirmModal.open, #deleteModal.open,
 #categoryModalOverlay.open, #editBookOverlay.open, #bulkMoveOverlay.open {
-  display:flex !important;
-  position:fixed !important;
-  inset:0 !important;
-  z-index:2000 !important;
-}
-
-/* Dialog content must stay above its overlay */
-#promptModal.open > *, #confirmModal.open > *, #deleteModal.open > *,
-#categoryModalOverlay.open > *, #editBookOverlay.open > *, #bulkMoveOverlay.open > * {
-  position:relative;
-  z-index:2001;
+  z-index:1200;
 }
 
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
