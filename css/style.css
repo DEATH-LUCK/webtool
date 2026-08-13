@@ -69,7 +69,7 @@ body::after{
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 110% 70% at 50% 100%,rgba(0,0,0,.35) 0%,transparent 70%);
 }
-body > * { position:relative; }
+body > * { position:relative; z-index:1; }
 a{color:inherit;text-decoration:none}
 button{font-family:var(--f-body);cursor:pointer}
 input,select,textarea{
@@ -490,7 +490,7 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 /* Sub-dialogs (prompts, confirms, category/edit/move) must always appear above the Admin Panel */
 #promptModal.open, #confirmModal.open, #deleteModal.open,
 #categoryModalOverlay.open, #editBookOverlay.open, #bulkMoveOverlay.open {
-  z-index:2000;
+  z-index:1200;
 }
 
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
@@ -1223,3 +1223,29 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
   background: rgba(184, 64, 64, 0.1);
 }
 .card-cover { position: relative; }
+
+
+/* ============================================================
+   SEPARATE TOP-MENU LIBRARY PAGE
+   This is intentionally independent from the existing Book Library.
+   ============================================================ */
+#separateLibraryPage { min-height: calc(100vh - 20px); }
+.separate-library-page { max-width: 1180px; margin: 0 auto; padding: 28px 28px 60px; }
+.separate-library-header { display:flex; align-items:center; gap:18px; margin-bottom:22px; }
+.separate-library-header h2 { margin:0; font-family:var(--f-head); font-style:italic; font-size:2rem; }
+.separate-library-header p { margin:4px 0 0; color:var(--cream3); font-size:.82rem; }
+.separate-library-breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:20px; color:var(--cream3); font-size:.82rem; }
+.library-crumb { background:none; border:0; color:var(--amber); cursor:pointer; padding:3px 0; font:inherit; }
+.library-crumb:hover { text-decoration:underline; }
+.separate-library-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; }
+.separate-library-card { min-height:145px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:var(--ink2); border:1px solid var(--line2); border-radius:16px; color:var(--cream); cursor:pointer; transition:transform .18s var(--spring),border-color .18s,background .18s; }
+.separate-library-card:hover { transform:translateY(-3px); border-color:var(--amber); background:var(--ink3); }
+.separate-library-icon { font-size:3rem; line-height:1; }
+.separate-library-name { font-weight:600; font-size:.95rem; }
+.separate-library-empty { grid-column:1/-1; padding:50px 20px; text-align:center; color:var(--cream3); border:1px dashed var(--line2); border-radius:14px; }
+.separate-library-admin-row { padding:12px 0; border-bottom:1px solid var(--line); }
+.separate-library-admin-row > div:first-child { display:flex; align-items:center; gap:8px; }
+.separate-library-admin-icon { font-size:1.15rem; }
+.separate-library-admin-row .folder-card-actions { margin-top:8px; }
+.separate-library-admin-children { margin:8px 0 0 22px; padding-left:14px; border-left:1px solid var(--line2); }
+@media (max-width:600px){ .separate-library-page{padding:20px 14px 45px}.separate-library-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.separate-library-card{min-height:125px}.separate-library-header h2{font-size:1.55rem} }
