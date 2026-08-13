@@ -69,6 +69,7 @@ body::after{
   position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse 110% 70% at 50% 100%,rgba(0,0,0,.35) 0%,transparent 70%);
 }
+body > * { position:relative; z-index:1; }
 a{color:inherit;text-decoration:none}
 button{font-family:var(--f-body);cursor:pointer}
 input,select,textarea{
@@ -480,35 +481,17 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 /* ─── Modals ─────────────────────────────────────────────────── */
 .modal-overlay,.upload-modal-overlay,.admin-overlay{
   display:none;position:fixed;inset:0;
-  background:rgba(0,0,0,.8);z-index:3000;
+  background:rgba(0,0,0,.8);z-index:1000;
   align-items:center;justify-content:center;padding:20px;
   backdrop-filter:blur(5px);
 }
+.modal-overlay.open,.upload-modal-overlay.open,.admin-overlay.open{display:flex; z-index:1100;}
 
-/* Admin panel is a dedicated top-level layer. Nothing on the page may
-   paint above it while it is open. */
-.admin-overlay.open{
-  display:flex !important;
-  z-index:5000 !important;
-}
-#adminPanel .admin-panel{
-  position:relative;
-  z-index:5001;
-}
-
-/* Normal dialogs sit above the page, and admin sub-dialogs sit above the
-   admin panel itself. */
-.modal-overlay.open,.upload-modal-overlay.open{
-  display:flex !important;
-  z-index:6000 !important;
-}
+/* Sub-dialogs (prompts, confirms, category/edit/move) must always appear above the Admin Panel */
 #promptModal.open, #confirmModal.open, #deleteModal.open,
 #categoryModalOverlay.open, #editBookOverlay.open, #bulkMoveOverlay.open {
-  z-index:7000 !important;
+  z-index:1200;
 }
-
-/* Toast must remain visible even when a modal is open. */
-.toast{z-index:8000 !important;}
 
 @keyframes sheetIn{from{opacity:0;transform:scale(.96) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
 
@@ -1241,38 +1224,20 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 }
 .card-cover { position: relative; }
 
-
-/* ============================================================
-   SEPARATE TOP-MENU LIBRARY PAGE
-   This page is independent from the existing Book Library.
-   ============================================================ */
-#separateLibraryPage {
-  min-height:100vh;
-  background:var(--ink);
-}
-/* The page is inside .app-main, so the app-main margin already accounts for
-   the sidebar. Do not add a second sidebar offset here. */
-.separate-library-page { max-width:1180px; margin:0 auto; padding:34px 28px 60px; }
-.separate-library-header { display:flex; align-items:center; gap:18px; margin-bottom:22px; }
-.separate-library-header h2 { margin:0; font-family:var(--f-head); font-style:italic; font-size:2rem; }
-.separate-library-header p { margin:4px 0 0; color:var(--cream3); font-size:.82rem; }
-.separate-library-breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:20px; color:var(--cream3); font-size:.82rem; }
-.library-crumb { background:none; border:0; color:var(--amber); cursor:pointer; padding:3px 0; font:inherit; }
-.library-crumb:hover { text-decoration:underline; }
-.separate-library-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; }
-.separate-library-card { min-height:145px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; background:var(--ink2); border:1px solid var(--line2); border-radius:16px; color:var(--cream); cursor:pointer; transition:transform .18s var(--spring),border-color .18s,background .18s; }
-.separate-library-card:hover { transform:translateY(-3px); border-color:var(--amber); background:var(--ink3); }
-.separate-library-icon { font-size:3rem; line-height:1; }
-.separate-library-name { font-weight:600; font-size:.95rem; }
-.separate-library-empty { grid-column:1/-1; padding:50px 20px; text-align:center; color:var(--cream3); border:1px dashed var(--line2); border-radius:14px; }
-.separate-library-admin-row { padding:12px 0; border-bottom:1px solid var(--line); }
-.separate-library-admin-main { display:flex; align-items:center; gap:8px; }
-.separate-library-admin-icon { font-size:1.15rem; }
-.separate-library-admin-row .folder-card-actions { margin-top:8px; }
-.separate-library-admin-children { margin:8px 0 0 22px; padding-left:14px; border-left:1px solid var(--line2); }
-@media (max-width:600px){
-  .separate-library-page { padding:20px 14px 45px; }
-  .separate-library-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .separate-library-card { min-height:125px; }
-  .separate-library-header h2 { font-size:1.55rem; }
-}
+/* Separate Library Hub */
+.library-hub-shell{min-height:100vh;background:var(--ink);color:var(--cream);padding:24px 28px}
+.library-hub-topbar{display:flex;align-items:center;gap:18px;max-width:1180px;margin:0 auto 18px;font-family:var(--f-head);font-style:italic;font-size:1.15rem}
+.library-hub-root{max-width:1180px;margin:0 auto;padding:18px 0 60px}
+.library-hub-header{display:flex;align-items:center;gap:18px;padding:28px 0 30px}
+.library-hub-kicker{color:var(--amber);font-size:.72rem;letter-spacing:.14em;font-weight:700;margin-bottom:5px}
+.library-hub-header h1{font-family:var(--f-head);font-style:italic;font-weight:400;font-size:clamp(2rem,4vw,3.2rem);margin:0 0 6px}
+.library-hub-header p{color:var(--cream3);margin:0;font-size:.85rem}
+.library-hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.library-hub-card{appearance:none;border:1px solid var(--line2);background:var(--ink2);border-radius:18px;padding:24px;text-align:left;color:var(--cream);cursor:pointer;display:flex;flex-direction:column;gap:8px;transition:transform .16s,border-color .16s,background .16s}
+.library-hub-card:hover{transform:translateY(-2px);border-color:var(--amber);background:var(--ink3)}
+.library-hub-icon{font-size:2.1rem}.library-hub-card-title{font-size:1.05rem;font-weight:700}.library-hub-card-meta{font-size:.72rem;color:var(--cream3)}
+.library-hub-items{margin-top:28px}.library-hub-items h2{font-family:var(--f-head);font-style:italic;font-weight:400}
+.library-hub-item-list{display:grid;gap:8px}.library-hub-item{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--ink2)}
+.library-hub-item>div:first-child{min-width:0;display:flex;flex-direction:column;gap:3px}.library-hub-item span{font-size:.72rem;color:var(--cream3)}.library-hub-item-actions{display:flex;gap:7px;flex-shrink:0}.library-hub-empty{padding:36px 0;color:var(--cream3);font-style:italic}
+.library-admin-upload{border:1px solid var(--line2);border-radius:14px;padding:16px;background:rgba(255,255,255,.02);margin-top:12px}
+@media(max-width:700px){.library-hub-shell{padding:16px}.library-hub-item{align-items:flex-start;flex-direction:column}.library-hub-item-actions{width:100%}.library-hub-item-actions .btn{flex:1;justify-content:center}}
