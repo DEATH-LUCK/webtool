@@ -165,9 +165,11 @@ async function openLibraryPage() {
   const main = document.querySelector('.app-main');
   const sidebar = document.getElementById('appSidebar');
 
+  // Keep .app-main visible because the separate Library page lives inside it.
+  // Hiding .app-main here makes the Library page itself disappear.
   if (bookLibrary) bookLibrary.style.display = 'none';
   if (reader) reader.style.display = 'none';
-  if (main) main.style.display = 'none';
+  if (main) main.style.display = '';
   if (page) page.style.display = 'block';
   if (sidebar) sidebar.style.display = 'flex';
 
