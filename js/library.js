@@ -11,7 +11,9 @@ let currentSubFolder = 'all';
 async function loadBooks() {
   try {
     const fSnap = await db.collection('folders').get();
-    allFolders = fSnap.docs.map(d => ({ id: d.id, parent: d.data().parent || null }));
+    allFolders = fSnap.docs
+      .filter(d => d.data().scope !== 'separate-library')
+      .map(d => ({ id: d.id, parent: d.data().parent || null }));
     const bSnap = await db.collection('books').orderBy('uploadedAt', 'desc').get();
     allBooks = bSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderBooks();

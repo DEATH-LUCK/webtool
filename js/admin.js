@@ -201,7 +201,9 @@ async function loadFoldersPane() {
       db.collection('folders').get()
     ]);
     const allBooksData = bSnap.docs.map(d => d.data());
-    allFolders = fSnap.docs.map(d => ({ id: d.id, parent: d.data().parent || null })); // keep cache fresh
+    allFolders = fSnap.docs
+      .filter(d => d.data().scope !== 'separate-library')
+      .map(d => ({ id: d.id, parent: d.data().parent || null })); // keep cache fresh
 
     let html = `
       <div class="admin-section" style="margin-bottom:16px;">
