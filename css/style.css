@@ -1248,10 +1248,10 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
    ============================================================ */
 #separateLibraryPage {
   min-height:100vh;
-  margin-left:76px;
   background:var(--ink);
 }
-.sidebar.open ~ #separateLibraryPage { margin-left:250px; }
+/* The page is inside .app-main, so the app-main margin already accounts for
+   the sidebar. Do not add a second sidebar offset here. */
 .separate-library-page { max-width:1180px; margin:0 auto; padding:34px 28px 60px; }
 .separate-library-header { display:flex; align-items:center; gap:18px; margin-bottom:22px; }
 .separate-library-header h2 { margin:0; font-family:var(--f-head); font-style:italic; font-size:2rem; }
@@ -1271,8 +1271,6 @@ body.light-mode .reader-toolbar{background:rgba(250,246,238,.95)}
 .separate-library-admin-row .folder-card-actions { margin-top:8px; }
 .separate-library-admin-children { margin:8px 0 0 22px; padding-left:14px; border-left:1px solid var(--line2); }
 @media (max-width:600px){
-  #separateLibraryPage { margin-left:0; }
-  .sidebar.open ~ #separateLibraryPage { margin-left:0; }
   .separate-library-page { padding:20px 14px 45px; }
   .separate-library-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .separate-library-card { min-height:125px; }
