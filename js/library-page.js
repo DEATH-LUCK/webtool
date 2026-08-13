@@ -51,15 +51,30 @@ async function ensureLibraryPageCategories() {
   await batch.commit();
 }
 
+function getDefaultLibraryCategories() {
+  const ids = {};
+  return DEFAULT_LIBRARY_CATEGORIES.map((item, index) => {
+    const key = item.parent ? `${item.parent}/${item.name}` : item.name;
+    const parentKey = item.parent || null;
+    const obj = { id: 'default-' + key.toLowerCase().replace(/[^a-z0-9]+/g, '-'), name: item.name, parent: parentKey ? ids[parentKey] || null : null, icon: item.icon, order: index, isDefault: true };
+    ids[key] = obj.id;
+    return obj;
+  });
+}
+
 async function loadSeparateLibraryCategories() {
   try {
     await ensureLibraryPageCategories();
     const snap = await db.collection('libraryCategories').orderBy('order').get();
     separateLibraryCategories = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!separateLibraryCategories.length) separateLibraryCategories = getDefaultLibraryCategories();
     separateLibraryLoaded = true;
   } catch (e) {
+    // The navigation must still work even if Firestore rules/network prevent loading.
+    // This fallback is only for the separate Library page; Book Library is untouched.
     console.error('Separate Library load error:', e);
-    showToast('Could not load Library categories: ' + e.message, 'error');
+    separateLibraryCategories = getDefaultLibraryCategories();
+    separateLibraryLoaded = true;
   }
 }
 
