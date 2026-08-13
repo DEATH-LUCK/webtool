@@ -43,7 +43,8 @@
           <input type="password" id="signInPassword" placeholder="••••••••" autocomplete="current-password"
             onkeydown="if(event.key==='Enter') handleSignIn()">
         </div>
-        <div style="text-align:right;margin-bottom:20px;">
+        <div style="text-align:right;margin-bottom:20px;display:flex;justify-content:space-between;">
+          <a href="javascript:void(0)" onclick="sendAdminMagicLink(); return false;" style="color:var(--amber);font-size:0.8rem;text-decoration:none;opacity:0.8;transition:0.2s;">Email link (admin)</a>
           <a href="javascript:void(0)" onclick="handleForgotPassword(); return false;" style="color:var(--amber);font-size:0.8rem;text-decoration:none;opacity:0.8;transition:0.2s;">Forgot Password?</a>
         </div>
         <div class="auth-buttons">

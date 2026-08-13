@@ -214,13 +214,13 @@ async function handleForgotPassword() {
   }
 }
 
-// ── Admin Magic Link ──────────────────────────────────────────
+// ── Admin Magic Link (passwordless sign-in for admin accounts) ─
 async function sendAdminMagicLink() {
-  const email = document.getElementById('adminEmail').value.trim();
+  const email = document.getElementById('signInEmail').value.trim();
   const err   = document.getElementById('authError');
   err.style.color = 'var(--cream)';
   err.textContent = '';
-  if (!email) { err.style.color = 'var(--red)'; err.textContent = 'Please enter your admin email.'; return; }
+  if (!email) { err.style.color = 'var(--red)'; err.textContent = 'Please enter your email above first, then click this link.'; return; }
 
   // Check if admin
   const snap = await db.collection('users').where('email', '==', email).get();

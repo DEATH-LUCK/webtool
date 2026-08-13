@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function isApproved() {
+      return isSignedIn()
+        && myUserDoc().data.status != 'pending'
+        && myUserDoc().data.status != 'banned';
+    }
+    function isAdmin() {
+      return isSignedIn() && myUserDoc().data.role == 'admin' && isApproved();
+    }
+    function isSuperAdmin() {
+      return isSignedIn() && myUserDoc().data.superadmin == true && isApproved();
+    }
+
+    // ── users ────────────────────────────────────────────────
+    // Every signed-in user can read the users collection — the app needs
+    // this for: (a) reading your own role/status right after login, and
+    // (b) the admin-magic-link email lookup, and (c) the admin Users pane.
+    // Writes are locked down: you can only create your own doc at signup;
+    // role/status/superadmin changes require an existing admin.
+    match /users/{userId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == userId
+                    && request.resource.data.role == 'user'
+                    && request.resource.data.superadmin != true;
+      allow update: if isAdmin()
+                    // Admins can't touch the superadmin flag from the client —
+                    // only settable manually from the Firebase Console.
+                    && request.resource.data.superadmin == resource.data.superadmin;
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── books (Library items + the separate 📚 Library hub) ───
+    match /books/{bookId} {
+      allow read: if isApproved();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── folders (categories, incl. scope == 'library') ────────
+    match /folders/{folderId} {
+      allow read: if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ── settings (maintenance mode / registration toggle) ─────
+    match /settings/{docId} {
+      // Read must be allowed even to a *pending/banned* signed-in user,
+      // because auth.js checks maintenanceMode before it knows the
+      // approval status.
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── logs (admin activity log) ──────────────────────────────
+    match /logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

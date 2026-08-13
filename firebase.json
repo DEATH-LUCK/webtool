@@ -1,10 +1,11 @@
 {
   "hosting": {
     "public": ".",
-    "ignore": ["firebase.json", "README-SECURE-LIBRARY.md", "functions/**", "**/.*", "**/node_modules/**"],
+    "ignore": ["firebase.json", "firestore.rules", "README-SECURE-LIBRARY.md", "README-SETUP.md", "functions/**", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {"source": "/api/library-file", "function": {"functionId": "libraryFile", "region": "us-central1"}}
     ]
   },
-  "functions": {"source": "functions"}
+  "functions": {"source": "functions"},
+  "firestore": {"rules": "firestore.rules"}
 }
