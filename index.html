@@ -9,6 +9,13 @@
 </head>
 <body>
 
+<!-- Initial loader — shown until Firebase resolves auth state, then
+     hidden by showLogin()/showApp() in auth.js -->
+<div id="initialLoader" style="position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;background:#050505;">
+  <div class="spinner" style="width:34px;height:34px;"></div>
+</div>
+
 <!-- ══════════════════════════════════════════════════════════
      LOGIN PAGE
 ══════════════════════════════════════════════════════════ -->
@@ -97,6 +104,20 @@
           <span class="links_name">Library</span>
         </a>
         <span class="tooltip">Library</span>
+      </li>
+      <li id="navLiUpload" style="display:none">
+        <a href="#" onclick="openUploadModal(); closeSidebarMobile(); return false;">
+          <i class='bx bx-upload'></i>
+          <span class="links_name">Upload</span>
+        </a>
+        <span class="tooltip">Upload</span>
+      </li>
+      <li id="navLiSelect" style="display:none">
+        <a href="#" onclick="toggleBulkMode(); closeSidebarMobile(); return false;">
+          <i class='bx bx-checkbox'></i>
+          <span class="links_name">Select / Edit Mode</span>
+        </a>
+        <span class="tooltip">Select / Edit Mode</span>
       </li>
       <li id="navLiAdmin" style="display:none">
         <a href="#" onclick="openAdminPanel(); closeSidebarMobile(); return false;">
@@ -297,7 +318,7 @@
       <div class="dropzone-text">Drop file here or click to browse</div>
       <div class="dropzone-sub">Books, Software, Music & Video — any size</div>
     </div>
-    <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
+    <input type="file" id="fileInput" accept=".pdf,.epub,.txt,.doc,.docx,.apk,.exe,.zip,.rar,.7z,.mp3,.mp4,.mkv,.wav,.avi,.mov" style="display:none" onchange="handleFileSelect(event)">
     
     <!-- File Preview Card -->
     <div id="fileChosen" style="display:none;">
