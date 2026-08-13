@@ -99,7 +99,7 @@
     </div>
     <ul class="nav-list">
       <li>
-        <a href="javascript:void(0)" onclick="closeReader(); closeSidebarMobile(); return false;">
+        <a href="javascript:void(0)" onclick="openLibraryPage(); closeSidebarMobile(); return false;">
           <i class='bx bx-grid-alt'></i>
           <span class="links_name">Library</span>
         </a>
@@ -248,7 +248,18 @@
   </div>
 
   <!-- Reader View -->
-  <div id="readerView" style="display:none;">
+  <div id="separateLibraryPage" style="display:none;">
+  <div class="separate-library-page">
+    <div class="separate-library-header">
+      <button class="btn btn-ghost btn-sm" onclick="closeLibraryPage()">← Back</button>
+      <div><h2>📚 Library</h2><p>Software, entertainment and archive</p></div>
+    </div>
+    <div id="separateLibraryBreadcrumb" class="separate-library-breadcrumb"></div>
+    <div id="separateLibraryGrid" class="separate-library-grid"></div>
+  </div>
+</div>
+
+<div id="readerView" style="display:none;">
     <!-- Desktop Toolbar -->
     <div class="reader-toolbar">
       <button class="btn btn-ghost btn-sm" onclick="closeReader()">← Back</button>
@@ -413,6 +424,7 @@
       <button class="admin-tab-btn active" onclick="showAdminTab('dash', this)">📊 Dash</button>
       <button class="admin-tab-btn" onclick="showAdminTab('users', this)">👥 Users</button>
       <button class="admin-tab-btn" onclick="showAdminTab('folders', this)">✏️ Edit</button>
+      <button class="admin-tab-btn" onclick="showAdminTab('library', this)">📚 Library</button>
       <button class="admin-tab-btn" onclick="showAdminTab('logs', this)">📜 Logs</button>
       <button class="admin-tab-btn" onclick="showAdminTab('settings', this)">⚙️ Settings</button>
     </div>
@@ -454,6 +466,7 @@
 <script src="js/upload.js"></script>
 <script src="js/reader.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/library-page.js"></script>
 
 </body>
 </html>
