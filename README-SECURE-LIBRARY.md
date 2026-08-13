@@ -19,3 +19,7 @@ firebase deploy --only functions:libraryFile,hosting
 The included function looks up the Library book document in Firestore, verifies `libraryScope == "library"`, reads its Drive file ID server-side, and streams the file. This keeps the Google Drive URL out of the Library page's HTML and UI.
 
 **Important:** the existing Google Drive files are currently made public by the browser upload flow. The proxy hides the Drive URL from normal users, but public Drive permissions should still be reviewed if you need the files to be inaccessible outside the website. For true private storage, move Drive authorization to a trusted server/service account and stop making uploaded files public.
+
+
+## Music / video / download fix
+The Library proxy now rejects Google Drive HTML/preview responses instead of sending them to the browser. Audio/video requests use the same-origin proxy with HTTP Range support, while downloads use `mode=download` and return the original filename. After changing `functions/index.js`, redeploy the Hosting rewrite and the `libraryFile` function.

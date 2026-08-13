@@ -137,7 +137,7 @@ async function uploadToGDrive(file, folderId, token, onProgress) {
         await makeFilePublic(fileData.id, token);
         const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileData.id}`;
         const viewUrl     = `https://drive.google.com/file/d/${fileData.id}/view`;
-        resolve({ downloadUrl, viewUrl, fileId: fileData.id });
+        resolve({ downloadUrl, viewUrl, fileId: fileData.id, fileName: file.name, mimeType: file.type || 'application/octet-stream' });
       } else {
         reject(new Error('Upload failed: ' + xhr.responseText));
       }
