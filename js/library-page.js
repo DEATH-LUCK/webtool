@@ -1,110 +1,111 @@
 // ============================================================
-// LIBRARY-PAGE.JS — Separate Library navigation page
-// Uses the existing `folders` collection with a private scope so
-// it remains fully separate from the Book Library UI/categories.
+// LIBRARY-PAGE.JS — Separate top-menu Library
+// IMPORTANT: This is NOT the existing Book Library.
+// It uses the existing `folders` collection with a separate scope.
 // ============================================================
+
+const SEPARATE_LIBRARY_SCOPE = 'separate-library';
+const SEPARATE_LIBRARY_PREFIX = 'lib_';
 
 let separateLibraryCategories = [];
 let separateLibraryPath = [];
 let separateLibraryLoaded = false;
 
-const SEPARATE_LIBRARY_SCOPE = 'separate-library';
-
-const DEFAULT_LIBRARY_CATEGORIES = [
-  { key:'software', name:'Software', parentKey:null, icon:'💻' },
-  { key:'windows', name:'Windows', parentKey:'software', icon:'🪟' },
-  { key:'windows-apps', name:'Apps', parentKey:'windows', icon:'📱' },
-  { key:'windows-games', name:'Games', parentKey:'windows', icon:'🎮' },
-  { key:'android', name:'Android', parentKey:'software', icon:'🤖' },
-  { key:'android-apps', name:'Apps', parentKey:'android', icon:'📱' },
-  { key:'android-games', name:'Games', parentKey:'android', icon:'🎮' },
-  { key:'entertainment', name:'Entertainment', parentKey:null, icon:'🎬' },
-  { key:'music', name:'Music', parentKey:'entertainment', icon:'🎵' },
-  { key:'videos', name:'Videos', parentKey:'entertainment', icon:'🎬' },
-  { key:'archive', name:'Archive', parentKey:null, icon:'📦' }
+const DEFAULT_SEPARATE_LIBRARY = [
+  { id: 'lib_software',      name: 'Software',      parent: null,             icon: '💻', order: 10 },
+  { id: 'lib_windows',       name: 'Windows',       parent: 'lib_software',   icon: '🪟', order: 20 },
+  { id: 'lib_windows_apps',  name: 'Apps',          parent: 'lib_windows',    icon: '📱', order: 30 },
+  { id: 'lib_windows_games', name: 'Games',         parent: 'lib_windows',    icon: '🎮', order: 40 },
+  { id: 'lib_android',       name: 'Android',       parent: 'lib_software',   icon: '🤖', order: 50 },
+  { id: 'lib_android_apps',  name: 'Apps',          parent: 'lib_android',    icon: '📱', order: 60 },
+  { id: 'lib_android_games', name: 'Games',         parent: 'lib_android',    icon: '🎮', order: 70 },
+  { id: 'lib_entertainment', name: 'Entertainment', parent: null,             icon: '🎬', order: 80 },
+  { id: 'lib_music',         name: 'Music',         parent: 'lib_entertainment', icon: '🎵', order: 90 },
+  { id: 'lib_videos',        name: 'Videos',        parent: 'lib_entertainment', icon: '🎬', order: 100 },
+  { id: 'lib_archive',       name: 'Archive',       parent: null,             icon: '📦', order: 110 }
 ];
 
-function libraryChildren(parentId) {
-  const pid = parentId || null;
-  return separateLibraryCategories
-    .filter(c => (c.parent || null) === pid)
-    .sort((a,b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+function separateLibrarySort(a, b) {
+  return (Number(a.order) || 0) - (Number(b.order) || 0) || String(a.name).localeCompare(String(b.name));
 }
 
-async function ensureLibraryPageCategories() {
-  // IMPORTANT: use the existing folders collection. The project's
-  // Firestore rules already permit admins to manage this collection;
-  // the `scope` field keeps these documents out of the Book Library.
-  const snap = await db.collection('folders').where('scope', '==', SEPARATE_LIBRARY_SCOPE).get();
-  if (!snap.empty) return;
+function separateLibraryChildren(parentId) {
+  return separateLibraryCategories
+    .filter(c => (c.parent || null) === (parentId || null))
+    .sort(separateLibrarySort);
+}
+
+function separateLibraryFind(id) {
+  return separateLibraryCategories.find(c => c.id === id) || null;
+}
+
+function separateLibraryDescendants(id) {
+  const found = [];
+  const walk = parentId => {
+    separateLibraryChildren(parentId).forEach(child => {
+      found.push(child);
+      walk(child.id);
+    });
+  };
+  walk(id);
+  return found;
+}
+
+async function ensureSeparateLibraryDefaults() {
+  // We deliberately use the existing `folders` collection because the
+  // project already has Firestore permissions for it. The `scope` field
+  // keeps these categories completely separate from Book Library folders.
+  const snap = await db.collection('folders').get();
+  const existing = new Set(
+    snap.docs
+      .filter(d => d.data().scope === SEPARATE_LIBRARY_SCOPE && d.id.startsWith(SEPARATE_LIBRARY_PREFIX))
+      .map(d => d.id)
+  );
+
+  const missing = DEFAULT_SEPARATE_LIBRARY.filter(c => !existing.has(c.id));
+  if (!missing.length) return;
 
   const batch = db.batch();
-  const ids = {};
-  const now = Date.now();
-
-  DEFAULT_LIBRARY_CATEGORIES.forEach((item, index) => {
-    const ref = db.collection('folders').doc();
-    ids[item.key] = ref.id;
-    batch.set(ref, {
-      name: item.name,
-      parent: item.parentKey ? ids[item.parentKey] : null,
-      icon: item.icon,
+  missing.forEach(c => {
+    batch.set(db.collection('folders').doc(c.id), {
+      name: c.name,
+      parent: c.parent,
+      icon: c.icon,
+      order: c.order,
       scope: SEPARATE_LIBRARY_SCOPE,
-      order: index,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    }, { merge: true });
   });
-
   await batch.commit();
 }
 
 async function loadSeparateLibraryCategories() {
   try {
-    await ensureLibraryPageCategories();
-    const snap = await db.collection('folders')
-      .where('scope', '==', SEPARATE_LIBRARY_SCOPE)
-      .get();
-    separateLibraryCategories = snap.docs.map(d => ({
-      id: d.id,
-      ...d.data(),
-      parent: d.data().parent || null
-    }));
+    // Seed defaults if necessary. If an existing deployment does not allow
+    // writes, we still render the built-in defaults below so the page works.
+    try {
+      await ensureSeparateLibraryDefaults();
+    } catch (seedError) {
+      console.warn('Separate Library default seed skipped:', seedError);
+    }
+
+    const snap = await db.collection('folders').get();
+    separateLibraryCategories = snap.docs
+      .filter(d => d.data().scope === SEPARATE_LIBRARY_SCOPE && d.id.startsWith(SEPARATE_LIBRARY_PREFIX))
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort(separateLibrarySort);
+
+    // If the database was empty or the seed was blocked, show the correct
+    // default tree in memory instead of a blank page.
+    if (!separateLibraryCategories.length) {
+      separateLibraryCategories = DEFAULT_SEPARATE_LIBRARY.map(c => ({ ...c }));
+    }
     separateLibraryLoaded = true;
   } catch (e) {
     console.error('Separate Library load error:', e);
-    separateLibraryLoaded = false;
-    showToast('Could not load Library categories: ' + e.message, 'error');
+    separateLibraryCategories = DEFAULT_SEPARATE_LIBRARY.map(c => ({ ...c }));
+    separateLibraryLoaded = true;
   }
-}
-
-async function openLibraryPage() {
-  if (typeof closeReader === 'function') closeReader();
-  if (typeof closeAdminPanel === 'function') closeAdminPanel();
-
-  const oldLibrary = document.getElementById('libraryView');
-  const reader = document.getElementById('readerView');
-  const page = document.getElementById('separateLibraryPage');
-  if (oldLibrary) oldLibrary.style.display = 'none';
-  if (reader) reader.style.display = 'none';
-  if (page) page.style.display = 'block';
-
-  const sidebar = document.getElementById('appSidebar');
-  if (sidebar) sidebar.style.display = 'flex';
-  separateLibraryPath = [];
-
-  const grid = document.getElementById('separateLibraryGrid');
-  if (grid) grid.innerHTML = '<div class="separate-library-empty"><div class="spinner"></div><p>Loading Library...</p></div>';
-
-  await loadSeparateLibraryCategories();
-  renderSeparateLibraryPage();
-}
-
-function closeLibraryPage() {
-  const page = document.getElementById('separateLibraryPage');
-  const oldLibrary = document.getElementById('libraryView');
-  if (page) page.style.display = 'none';
-  if (oldLibrary) oldLibrary.style.display = 'block';
-  separateLibraryPath = [];
 }
 
 function renderSeparateLibraryPage() {
@@ -112,43 +113,86 @@ function renderSeparateLibraryPage() {
   const crumb = document.getElementById('separateLibraryBreadcrumb');
   if (!grid || !crumb) return;
 
-  const parentId = separateLibraryPath.length
+  const currentParent = separateLibraryPath.length
     ? separateLibraryPath[separateLibraryPath.length - 1]
     : null;
-  const children = libraryChildren(parentId);
-  const pathNames = separateLibraryPath
-    .map(id => separateLibraryCategories.find(c => c.id === id)?.name)
-    .filter(Boolean);
+  const children = separateLibraryChildren(currentParent);
 
-  crumb.innerHTML =
-    `<button class="library-crumb" onclick="separateLibraryPath=[];renderSeparateLibraryPage()">📚 Library</button>` +
-    pathNames.map((name, i) =>
-      ` <span>›</span> <button class="library-crumb" onclick="separateLibraryPath=separateLibraryPath.slice(0,${i+1});renderSeparateLibraryPage()">${escapeHtml(name)}</button>`
-    ).join('');
+  const rootCrumb = '<button class="library-crumb" onclick="separateLibraryGoHome()">📚 Library</button>';
+  const pathCrumbs = separateLibraryPath.map((id, index) => {
+    const item = separateLibraryFind(id);
+    if (!item) return '';
+    return ` <span>›</span> <button class="library-crumb" onclick="separateLibraryGoTo(${index})">${escapeHtml(item.name)}</button>`;
+  }).join('');
+  crumb.innerHTML = rootCrumb + pathCrumbs;
 
   if (!children.length) {
-    grid.innerHTML = '<div class="separate-library-empty">No items in this category yet.</div>';
+    grid.innerHTML = '<div class="separate-library-empty">No categories in this section yet.</div>';
     return;
   }
 
   grid.innerHTML = children.map(c => `
-    <button class="separate-library-card" onclick="openSeparateLibraryCategory('${c.id}')">
+    <button class="separate-library-card" onclick="openSeparateLibraryCategory('${escapeAttr(c.id)}')">
       <span class="separate-library-icon">${escapeHtml(c.icon || '📁')}</span>
       <span class="separate-library-name">${escapeHtml(c.name)}</span>
     </button>
   `).join('');
 }
 
+function separateLibraryGoHome() {
+  separateLibraryPath = [];
+  renderSeparateLibraryPage();
+}
+
+function separateLibraryGoTo(index) {
+  separateLibraryPath = separateLibraryPath.slice(0, index + 1);
+  renderSeparateLibraryPage();
+}
+
 function openSeparateLibraryCategory(id) {
-  if (!separateLibraryCategories.some(c => c.id === id)) return;
+  if (!separateLibraryFind(id)) return;
   separateLibraryPath.push(id);
   renderSeparateLibraryPage();
 }
 
+async function openLibraryPage() {
+  closeReader();
+  closeAdminPanel();
+
+  const page = document.getElementById('separateLibraryPage');
+  const bookLibrary = document.getElementById('libraryView');
+  const reader = document.getElementById('readerView');
+  const main = document.querySelector('.app-main');
+  const sidebar = document.getElementById('appSidebar');
+
+  if (bookLibrary) bookLibrary.style.display = 'none';
+  if (reader) reader.style.display = 'none';
+  if (main) main.style.display = 'none';
+  if (page) page.style.display = 'block';
+  if (sidebar) sidebar.style.display = 'flex';
+
+  separateLibraryPath = [];
+  const grid = document.getElementById('separateLibraryGrid');
+  if (grid) grid.innerHTML = '<div class="separate-library-empty"><div class="spinner"></div><p>Loading Library...</p></div>';
+
+  if (!separateLibraryLoaded) await loadSeparateLibraryCategories();
+  renderSeparateLibraryPage();
+}
+
+function closeLibraryPage() {
+  const page = document.getElementById('separateLibraryPage');
+  const main = document.querySelector('.app-main');
+  const bookLibrary = document.getElementById('libraryView');
+  if (page) page.style.display = 'none';
+  if (main) main.style.display = '';
+  if (bookLibrary) bookLibrary.style.display = 'block';
+  separateLibraryPath = [];
+}
+
 // ============================================================
-// ADMIN — manages ONLY the separate top-menu Library page.
-// Book Library category tools remain in admin.js untouched.
+// ADMIN — Manage ONLY the separate top-menu Library
 // ============================================================
+
 async function loadSeparateLibraryAdminPane() {
   const el = document.getElementById('adminPane_library');
   if (!el) return;
@@ -160,61 +204,80 @@ async function loadSeparateLibraryAdminPane() {
   el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading Library categories...</p></div>';
   try {
     await loadSeparateLibraryCategories();
-    const roots = libraryChildren(null);
-    el.innerHTML = `
-      <div class="admin-section">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;">
-          <div>
-            <h4 style="margin:0;">📚 Library Page Categories</h4>
-            <p class="muted" style="font-size:.72rem;margin-top:5px;">These categories belong only to the top-menu Library page. The existing Book Library categories are separate.</p>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="addSeparateLibraryCategory(null)">➕ Category</button>
-        </div>
-        <div id="separateLibraryAdminTree">${renderSeparateLibraryAdminTree(roots)}</div>
-      </div>`;
+    renderSeparateLibraryAdminPane();
   } catch (e) {
     el.innerHTML = `<div class="empty-admin"><p style="color:var(--red)">Error: ${escapeHtml(e.message)}</p></div>`;
   }
 }
 
+function renderSeparateLibraryAdminPane() {
+  const el = document.getElementById('adminPane_library');
+  if (!el) return;
+  const roots = separateLibraryChildren(null);
+
+  el.innerHTML = `
+    <div class="admin-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;">
+        <div>
+          <h4 style="margin:0;">📚 Library Categories</h4>
+          <p class="muted" style="font-size:.72rem;margin-top:5px;">Only the separate top-menu Library is managed here. The Book Library categories in Edit remain unchanged.</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addSeparateLibraryCategory(null)">➕ Category</button>
+      </div>
+      <div id="separateLibraryAdminTree">
+        ${roots.length ? renderSeparateLibraryAdminTree(roots) : '<p class="muted">No categories yet.</p>'}
+      </div>
+    </div>`;
+}
+
 function renderSeparateLibraryAdminTree(items) {
   return items.map(c => {
-    const children = libraryChildren(c.id);
-    return `<div class="separate-library-admin-row">
-      <div><span class="separate-library-admin-icon">${escapeHtml(c.icon || '📁')}</span><strong>${escapeHtml(c.name)}</strong><span class="muted">${children.length ? ` · ${children.length} sub` : ''}</span></div>
-      <div class="folder-card-actions">
-        <button class="btn btn-ghost btn-sm" onclick="addSeparateLibraryCategory('${c.id}')">➕ Sub</button>
-        <button class="btn btn-ghost btn-sm" onclick="renameSeparateLibraryCategory('${c.id}')">✏</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteSeparateLibraryCategory('${c.id}')">🗑</button>
-      </div>
-      ${children.length ? `<div class="separate-library-admin-children">${renderSeparateLibraryAdminTree(children)}</div>` : ''}
-    </div>`;
+    const children = separateLibraryChildren(c.id);
+    const safeId = escapeAttr(c.id);
+    return `
+      <div class="separate-library-admin-row">
+        <div class="separate-library-admin-main">
+          <span class="separate-library-admin-icon">${escapeHtml(c.icon || '📁')}</span>
+          <strong>${escapeHtml(c.name)}</strong>
+          ${children.length ? `<span class="muted"> · ${children.length} sub</span>` : ''}
+        </div>
+        <div class="folder-card-actions">
+          <button class="btn btn-ghost btn-sm" onclick="addSeparateLibraryCategory('${safeId}')">➕ Sub</button>
+          <button class="btn btn-ghost btn-sm" onclick="renameSeparateLibraryCategory('${safeId}')">✏ Rename</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSeparateLibraryCategory('${safeId}')">🗑 Delete</button>
+        </div>
+        ${children.length ? `<div class="separate-library-admin-children">${renderSeparateLibraryAdminTree(children)}</div>` : ''}
+      </div>`;
   }).join('');
 }
 
 async function addSeparateLibraryCategory(parentId) {
+  if (!isSuperAdmin) { showToast('Only Superadmin can manage Library categories.', 'error'); return; }
   const name = await showPrompt('New Library Category', 'Enter category name:');
   if (!name || !name.trim()) return;
   const trimmed = name.trim();
-  const icon = await showPrompt('Category Icon', 'Enter an emoji (optional):', '📁');
-  const exists = separateLibraryCategories.some(c =>
+  const iconInput = await showPrompt('Category Icon', 'Enter an emoji (optional):', '📁');
+  const icon = (iconInput || '').trim() || '📁';
+
+  const duplicate = separateLibraryCategories.some(c =>
     c.name.toLowerCase() === trimmed.toLowerCase() && (c.parent || null) === (parentId || null)
   );
-  if (exists) { showToast('A category with this name already exists here.', 'error'); return; }
+  if (duplicate) { showToast('A category with this name already exists here.', 'error'); return; }
 
   try {
-    await db.collection('folders').add({
+    const ref = db.collection('folders').doc(SEPARATE_LIBRARY_PREFIX + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    await ref.set({
       name: trimmed,
       parent: parentId || null,
-      icon: icon?.trim() || '📁',
-      scope: SEPARATE_LIBRARY_SCOPE,
+      icon,
       order: Date.now(),
+      scope: SEPARATE_LIBRARY_SCOPE,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await logAction(`LIBRARY CATEGORY CREATED: ${trimmed}`);
     separateLibraryLoaded = false;
     await loadSeparateLibraryCategories();
-    await loadSeparateLibraryAdminPane();
+    renderSeparateLibraryAdminPane();
     renderSeparateLibraryPage();
     showToast(`📚 "${trimmed}" created.`, 'success');
   } catch (e) {
@@ -223,11 +286,13 @@ async function addSeparateLibraryCategory(parentId) {
 }
 
 async function renameSeparateLibraryCategory(id) {
-  const cat = separateLibraryCategories.find(c => c.id === id);
+  if (!isSuperAdmin) { showToast('Only Superadmin can manage Library categories.', 'error'); return; }
+  const cat = separateLibraryFind(id);
   if (!cat) return;
   const name = await showPrompt('Rename Library Category', 'Enter new name:', cat.name);
   if (!name || !name.trim() || name.trim() === cat.name) return;
   const trimmed = name.trim();
+
   const duplicate = separateLibraryCategories.some(c =>
     c.id !== id && c.name.toLowerCase() === trimmed.toLowerCase() && (c.parent || null) === (cat.parent || null)
   );
@@ -238,7 +303,7 @@ async function renameSeparateLibraryCategory(id) {
     await logAction(`LIBRARY CATEGORY RENAMED: ${cat.name} → ${trimmed}`);
     separateLibraryLoaded = false;
     await loadSeparateLibraryCategories();
-    await loadSeparateLibraryAdminPane();
+    renderSeparateLibraryAdminPane();
     renderSeparateLibraryPage();
     showToast('Category renamed.', 'success');
   } catch (e) {
@@ -247,38 +312,35 @@ async function renameSeparateLibraryCategory(id) {
 }
 
 async function deleteSeparateLibraryCategory(id) {
-  const cat = separateLibraryCategories.find(c => c.id === id);
+  if (!isSuperAdmin) { showToast('Only Superadmin can manage Library categories.', 'error'); return; }
+  const cat = separateLibraryFind(id);
   if (!cat) return;
 
-  const descendants = [];
-  const collect = parent => {
-    libraryChildren(parent).forEach(c => {
-      descendants.push(c);
-      collect(c.id);
-    });
-  };
-  collect(id);
-
+  const descendants = separateLibraryDescendants(id);
   const msg = descendants.length
     ? `Delete "${cat.name}" and its ${descendants.length} sub-categories?`
     : `Delete "${cat.name}"?`;
   if (!await showConfirm('Delete Library Category', msg)) return;
 
   try {
-    const batch = db.batch();
-    batch.delete(db.collection('folders').doc(id));
-    descendants.forEach(c => batch.delete(db.collection('folders').doc(c.id)));
-    await batch.commit();
+    const ids = [id, ...descendants.map(c => c.id)];
+    // Firestore batches are limited to 500 writes; chunk for safety.
+    for (let i = 0; i < ids.length; i += 450) {
+      const batch = db.batch();
+      ids.slice(i, i + 450).forEach(folderId => {
+        batch.delete(db.collection('folders').doc(folderId));
+      });
+      await batch.commit();
+    }
 
     await logAction(`LIBRARY CATEGORY DELETED: ${cat.name}`);
     separateLibraryLoaded = false;
-    separateLibraryPath = separateLibraryPath.filter(x => x !== id && !descendants.some(c => c.id === x));
+    separateLibraryPath = separateLibraryPath.filter(pathId => !ids.includes(pathId));
     await loadSeparateLibraryCategories();
-    await loadSeparateLibraryAdminPane();
+    renderSeparateLibraryAdminPane();
     renderSeparateLibraryPage();
     showToast('Category deleted.', 'success');
   } catch (e) {
-    console.error('deleteSeparateLibraryCategory error:', e);
-    showToast('Error: ' + e.message, 'error');
+    showToast('Error deleting category: ' + e.message, 'error');
   }
 }
