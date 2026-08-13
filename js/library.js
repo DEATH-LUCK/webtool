@@ -7,6 +7,28 @@ let currentView   = 'grid';
 let currentFolder = 'all';
 let currentSubFolder = 'all';
 
+// ── Library navigation ─────────────────────────────────────────
+function showLibrary() {
+  const reader = document.getElementById('readerView');
+  const library = document.getElementById('libraryView');
+  const appPage = document.getElementById('appPage');
+  const sidebar = document.getElementById('appSidebar');
+  const main = document.querySelector('.app-main');
+
+  if (reader) reader.style.display = 'none';
+  if (library) library.style.display = 'block';
+  if (appPage) appPage.style.display = 'block';
+  if (sidebar) sidebar.style.display = 'flex';
+  if (main) main.style.marginLeft = '';
+
+  // If an admin overlay is open, return to the main Library view.
+  const admin = document.getElementById('adminPanel');
+  if (admin) admin.classList.remove('open');
+
+  // Refresh the collection when returning to Library.
+  if (typeof loadBooks === 'function') loadBooks();
+}
+
 // ── Load Books & Folders ──────────────────────────────────────
 async function loadBooks() {
   try {
