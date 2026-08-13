@@ -528,6 +528,13 @@ function toggleBulkMode() {
   if (label) label.textContent = bulkMode ? 'Exit Select / Edit Mode' : 'Select / Edit Mode';
   if (icon)  icon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
   if (btn)   btn.classList.toggle('active-bulk', bulkMode);
+
+  // Keep the sidebar shortcut's icon/label in sync too
+  const sideLabel = document.querySelector('#navLiSelect .links_name');
+  const sideIcon  = document.querySelector('#navLiSelect i');
+  if (sideLabel) sideLabel.textContent = bulkMode ? 'Exit Select Mode' : 'Select / Edit Mode';
+  if (sideIcon)  sideIcon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
+
   renderBooks();
 }
 

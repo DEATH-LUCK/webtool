@@ -142,14 +142,18 @@ async function loadUserRole(uid, email) {
 
 // ── Show/Hide Pages ───────────────────────────────────────────
 function showLogin() {
+  const loader = document.getElementById('initialLoader');
+  if (loader) loader.style.display = 'none';
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').style.display   = 'none';
   document.getElementById('loginFormSection').style.display = 'block';
   document.getElementById('magicLinkSection').style.display = 'none';
-  switchTab('signIn', document.querySelector('.tab-btn'));
+  switchTab('signIn', document.querySelector('.tab-btn'), true);
 }
 
 function showApp() {
+  const loader = document.getElementById('initialLoader');
+  if (loader) loader.style.display = 'none';
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display   = 'block';
 
@@ -255,18 +259,26 @@ async function handleSignUp() {
     err.textContent = '🚫 New sign-ups are currently closed.';
     return;
   }
+  if (appSettings.maintenanceMode) {
+    err.style.color = 'var(--red)';
+    err.textContent = '🚧 Site is under maintenance. Please check back later.';
+    return;
+  }
 
   if (!email || !pass) { err.textContent = 'Please enter email and password.'; return; }
   if (pass.length < 6) { err.textContent = 'Password must be at least 6 characters.'; return; }
   try {
     const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    const autoApprove = appSettings.autoApproveSignups === true;
     await db.collection('users').doc(cred.user.uid).set({
-      email, role: 'user', status: 'pending',
+      email, role: 'user', status: autoApprove ? 'approved' : 'pending',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
     await auth.signOut();
     err.style.color   = 'var(--success)';
-    err.textContent   = '✅ Account created! Wait for admin approval.';
+    err.textContent   = autoApprove
+      ? '✅ Account created! You can now sign in.'
+      : '✅ Account created! Wait for admin approval.';
   } catch(e) { err.textContent = getAuthError(e.code); }
 }
 
@@ -292,7 +304,7 @@ function getAuthError(code) {
 }
 
 // ── Tab Switching ──────────────────────────────────────────────
-function switchTab(tab, btn) {
+function switchTab(tab, btn, keepError) {
   // Hide all tab contents
   document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
   // Remove active class from all buttons
@@ -304,9 +316,12 @@ function switchTab(tab, btn) {
   // Add active class to clicked button
   if (btn && btn.classList) btn.classList.add('active');
 
-  // Clear any previous errors
-  const err = document.getElementById('authError');
-  if (err) err.textContent = '';
+  // Clear any previous errors (unless explicitly told to keep them —
+  // e.g. showLogin() preserving a banned/pending/maintenance message)
+  if (!keepError) {
+    const err = document.getElementById('authError');
+    if (err) err.textContent = '';
+  }
 }
 
 // ── Sidebar ───────────────────────────────────────────────────

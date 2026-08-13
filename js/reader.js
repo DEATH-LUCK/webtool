@@ -76,12 +76,22 @@ async function openPDF(url) {
     else if (m2) fileId = m2[1];
 
     if (fileId) {
-      // Use PDF.js with cors proxy for Google Drive files
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent('https://drive.google.com/uc?export=download&id=' + fileId);
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const gdUrl = 'https://drive.google.com/uc?export=download&id=' + fileId;
+      const proxyUrls = [
+        'https://corsproxy.io/?' + encodeURIComponent(gdUrl),
+        'https://api.allorigins.win/raw?url=' + encodeURIComponent(gdUrl)
+      ];
       try {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        pdfDoc = await pdfjsLib.getDocument({ url: proxyUrl, withCredentials: false }).promise;
+        let loaded = false;
+        for (const proxyUrl of proxyUrls) {
+          try {
+            pdfDoc = await pdfjsLib.getDocument({ url: proxyUrl, withCredentials: false }).promise;
+            loaded = true; break;
+          } catch(e) {}
+        }
+        if (!loaded) throw new Error('Could not load PDF via any proxy');
         totalPages = pdfDoc.numPages;
         document.getElementById('readerLoading').style.display = 'none';
         if (isMobile) {
@@ -268,6 +278,7 @@ async function openEPUB(url) {
     const urls = [
       url.replace('/upload/', '/upload/fl_attachment/'),
       'https://corsproxy.io/?' + encodeURIComponent(url),
+      'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
       url
     ];
     let response = null;
@@ -425,6 +436,28 @@ document.addEventListener('touchend', e => {
     else changePage(-1);
   }
 }, { passive: true });
+
+// ── Responsive: react to resize/rotation while reader is open ─
+let _resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(async () => {
+    const wasMobile = isMobile;
+    isMobile = window.innerWidth < 768;
+    if (document.getElementById('readerView').style.display === 'none') return;
+    if (!pdfDoc || wasMobile === isMobile) return;
+    // Layout mode changed (mobile scroll <-> desktop single-page) — re-render
+    document.getElementById('epubContainer').innerHTML = '';
+    if (isMobile) {
+      document.getElementById('pdfCanvas').style.display = 'none';
+      await renderAllPDFPages();
+    } else {
+      document.getElementById('epubContainer').style.display = 'none';
+      document.getElementById('pdfCanvas').style.display = 'block';
+      await renderPDFPage(currentPage);
+    }
+  }, 250);
+});
 
 // ── Keyboard ──────────────────────────────────────────────────
 document.addEventListener('keydown', e => {

@@ -48,6 +48,10 @@ function handleFileSelect(e) { if (e.target.files.length > 0) processFile(e.targ
 async function processFile(file) {
   if (!file.name.match(/\.(pdf|epub|txt|doc|docx|apk|exe|zip|rar|7z|mp3|mp4|mkv|wav|avi|mov)$/i)) { showToast('Unsupported file type.', 'error'); return; }
 
+  if (file.name.match(/\.(apk|exe)$/i)) {
+    showToast('⚠ Executable file — it will be made publicly downloadable via its link.', 'error');
+  }
+
   selectedFile = file;
   
   // UI Updates

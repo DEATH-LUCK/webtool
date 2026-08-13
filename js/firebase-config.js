@@ -14,7 +14,14 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ── Set Admin Role (run once in console) ──────────────────────
+// ── Set Admin Role (BOOTSTRAP ONLY) ────────────────────────────
+// ⚠️ This only works BEFORE you publish firestore.rules (or if you
+// temporarily loosen the rules). Once the rules are live, only an
+// existing superadmin can change roles — as intended, so random
+// visitors can't call this from the browser console to self-promote.
+// To create your very first superadmin: open Firebase Console →
+// Firestore → users/<their-uid> → manually add fields
+// { role: "admin", superadmin: true }.
 async function setAdminRole(email) {
   const snap = await db.collection('users').get();
   for (const doc of snap.docs) {

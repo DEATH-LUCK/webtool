@@ -129,8 +129,8 @@ async function loadUsersPane() {
       
       row.innerHTML = `
         <div class="user-info">
-          <div class="user-email">${u.email}</div>
-          <div class="user-badge muted">${role.toUpperCase()} • ${status.toUpperCase()}</div>
+          <div class="user-email">${escapeHtml(u.email)}</div>
+          <div class="user-badge muted">${escapeHtml(role.toUpperCase())} • ${escapeHtml(status.toUpperCase())}</div>
         </div>
         <div class="user-actions-container">${actions}</div>
       `;
@@ -179,7 +179,7 @@ async function deleteUser(uid) {
     if (!isSuperAdmin) { showToast('Only Superadmin can delete users.', 'error'); return; }
     const targetDoc = await db.collection('users').doc(uid).get();
     const email = targetDoc.data()?.email || uid;
-    if (!confirm(`Are you sure you want to delete user ${email}?`)) return;
+    if (!await showConfirm('Delete User', `Are you sure you want to delete user ${email}? This cannot be undone.`)) return;
     await db.collection('users').doc(uid).delete();
     await logAction(`REMOVED USER: ${email}`);
     showToast('User removed.', 'success');
@@ -393,8 +393,8 @@ async function loadLogsPane() {
       el.innerHTML += `
         <div class="activity-item">
           <div class="activity-info">
-            <div class="activity-desc">${l.message}</div>
-            <div class="activity-meta">${time} • ${l.adminEmail}</div>
+            <div class="activity-desc">${escapeHtml(l.message)}</div>
+            <div class="activity-meta">${escapeHtml(time)} • ${escapeHtml(l.adminEmail)}</div>
           </div>
         </div>
       `;
