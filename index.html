@@ -99,7 +99,7 @@
     </div>
     <ul class="nav-list">
       <li>
-        <a href="javascript:void(0)" onclick="openLibraryPage(); closeSidebarMobile(); return false;">
+        <a href="javascript:void(0)" onclick="openLibraryHub(); return false;">
           <i class='bx bx-grid-alt'></i>
           <span class="links_name">Library</span>
         </a>
@@ -244,21 +244,6 @@
         <button class="btn btn-ghost" onclick="closeCategoryModal()">Cancel</button>
         <button class="btn btn-primary" onclick="saveCategoryModal()">Save</button>
       </div>
-    </div>
-  </div>
-
-  <!-- Separate top-menu Library page (independent from Book Library) -->
-  <div id="separateLibraryPage" style="display:none;">
-    <div class="separate-library-page">
-      <div class="separate-library-header">
-        <button class="btn btn-ghost btn-sm" onclick="closeLibraryPage()">← Back</button>
-        <div>
-          <h2>📚 Library</h2>
-          <p>Software, entertainment and archive</p>
-        </div>
-      </div>
-      <div id="separateLibraryBreadcrumb" class="separate-library-breadcrumb"></div>
-      <div id="separateLibraryGrid" class="separate-library-grid"></div>
     </div>
   </div>
 
@@ -410,6 +395,15 @@
 </div>
 
 
+
+
+<!-- SEPARATE LIBRARY HUB -->
+<div id="libraryHubPage" style="display:none;">
+  <div class="library-hub-shell">
+    <div class="library-hub-topbar"><button class="btn btn-ghost" onclick="closeLibraryHub()">← Book Library</button><span>📚 Library</span></div>
+    <main id="libraryHubRoot" class="library-hub-root"></main>
+  </div>
+</div>
 
 <!-- ══════════════════════════════════════════════════════════
      ADMIN PANEL
