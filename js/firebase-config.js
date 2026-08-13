@@ -34,3 +34,7 @@ async function setAdminRole(email) {
   await db.collection('users').doc(email).set({ role: 'admin', email }, { merge: true });
   console.log('✅ Admin role set for', email);
 }
+
+// Secure same-origin proxy used by the separate Library. Deploy the included
+// Firebase Function + Hosting rewrite to keep Google Drive URLs out of the UI.
+const LIBRARY_PROXY_BASE = '/api/library-file';

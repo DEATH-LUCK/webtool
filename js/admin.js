@@ -518,7 +518,7 @@ async function uploadLibraryItem(){
     status.textContent='Connecting to Google Drive...'; const token=await getGDriveToken();
     const root=await getOrCreateRootFolder(token); const folder=await getOrCreateSubFolder(token,root,'Library');
     status.textContent='Uploading...'; const result=await uploadToGDrive(libraryUploadFile,folder,token,p=>status.textContent='Uploading '+p+'%');
-    await db.collection('books').add({title,author,category,fileType:(libraryUploadFile.name.split('.').pop()||'').toLowerCase(),fileSize:libraryUploadFile.size,downloadUrl:result.downloadUrl,viewUrl:result.viewUrl,fileId:result.fileId,coverUrl:null,uploadedBy:currentUser.uid,uploadedAt:firebase.firestore.FieldValue.serverTimestamp(),libraryScope:'library'});
+    await db.collection('books').add({title,author,category,fileType:(libraryUploadFile.name.split('.').pop()||'').toLowerCase(),fileSize:libraryUploadFile.size,fileId:result.fileId,coverUrl:null,uploadedBy:currentUser.uid,uploadedAt:firebase.firestore.FieldValue.serverTimestamp(),libraryScope:'library'});
     status.textContent='Uploaded successfully.'; showToast('Library item uploaded.','success'); libraryUploadFile=null; loadLibraryPane();
   }catch(e){status.textContent='Upload failed: '+e.message;showToast('Upload failed: '+e.message,'error');}finally{btn.disabled=false;}
 }
