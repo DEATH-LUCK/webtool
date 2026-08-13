@@ -5,7 +5,7 @@ let allBooks     = [];
 let allFolders   = [];
 let currentView   = 'grid';
 let currentFolder = 'all';
-let currentSubFolder = 'all';
+let currentSubFolder = 'all'; // kept for backward compatibility
 
 // ── Load Books & Folders ──────────────────────────────────────
 async function loadBooks() {
@@ -24,53 +24,120 @@ async function loadBooks() {
 // ── Category helpers (unlimited hierarchy) ─────────────────────
 function getTopLevelFolders() { return allFolders.filter(f => !f.parent); }
 function getChildFolders(parentId) { return allFolders.filter(f => f.parent === parentId); }
-function getFolderPath(folderId) {
-  const path = []; let cur = allFolders.find(f => f.id === folderId); const seen = new Set();
-  while (cur && !seen.has(cur.id)) { seen.add(cur.id); path.unshift(cur); cur = cur.parent ? allFolders.find(f => f.id === cur.parent) : null; }
+function getFolderById(id) { return allFolders.find(f => f.id === id); }
+function getFolderPath(id) {
+  const path = [];
+  let cur = getFolderById(id);
+  const seen = new Set();
+  while (cur && !seen.has(cur.id)) {
+    seen.add(cur.id); path.unshift(cur); cur = getFolderById(cur.parent);
+  }
   return path;
 }
-function getDescendantIds(folderId) {
-  const ids = []; const walk = id => getChildFolders(id).forEach(c => { ids.push(c.id); walk(c.id); }); walk(folderId); return ids;
+function getDescendantIds(parentId) {
+  const ids = [parentId];
+  const walk = (id) => getChildFolders(id).forEach(c => { ids.push(c.id); walk(c.id); });
+  walk(parentId);
+  return ids;
+}
+function getFolderBookCount(folderId) {
+  const ids = new Set(getDescendantIds(folderId));
+  return allBooks.filter(b => ids.has(b.category)).length;
 }
 function buildCategoryOptionsHTML() {
   let html = '<option value="General">📁 General</option>';
-  const walk = (parentId, depth) => getChildFolders(parentId).forEach(f => {
-    html += `<option value="${escapeHtml(f.id)}">${'— '.repeat(Math.min(depth, 6))}📁 ${escapeHtml(f.id)}</option>`; walk(f.id, depth + 1);
-  });
+  const walk = (parentId, depth) => {
+    getChildFolders(parentId).filter(f => f.id !== 'General').forEach(f => {
+      const prefix = depth ? '— '.repeat(Math.min(depth, 6)) : '📁 ';
+      html += `<option value="${escapeHtml(f.id)}">${prefix}${escapeHtml(f.id)}</option>`;
+      walk(f.id, depth + 1);
+    });
+  };
   getTopLevelFolders().filter(f => f.id !== 'General').forEach(f => {
-    html += `<option value="${escapeHtml(f.id)}">📁 ${escapeHtml(f.id)}</option>`; walk(f.id, 1);
+    html += `<option value="${escapeHtml(f.id)}">📁 ${escapeHtml(f.id)}</option>`;
+    walk(f.id, 1);
   });
   return html;
 }
+
+// ── Shared filtering (unlimited folder hierarchy) ──────────────
 function getFilteredBooks() {
   const search = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
   return allBooks.filter(book => {
     const matchSearch = !search || book.title?.toLowerCase().includes(search) || book.author?.toLowerCase().includes(search);
-    let matchFolder = true;
-    if (currentFolder !== 'all') {
-      const allowed = [currentFolder, ...getDescendantIds(currentFolder)];
-      matchFolder = allowed.includes(book.category);
-      if (currentSubFolder !== 'all') matchFolder = [currentSubFolder, ...getDescendantIds(currentSubFolder)].includes(book.category);
-    }
+    const matchFolder = currentFolder === 'all' || getDescendantIds(currentFolder).includes(book.category);
     return matchSearch && matchFolder;
   });
 }
 
+// ── Render Books ──────────────────────────────────────────────
+function renderBooks() {
+  const gridEl  = document.getElementById('booksGrid');
+  const listEl  = document.getElementById('booksListView');
+  const emptyEl = document.getElementById('emptyState');
+  if (!gridEl || !listEl || !emptyEl) return;
+  const search  = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
+
+  gridEl.innerHTML = '';
+  listEl.innerHTML = '';
+  renderFolderChips();
+  const filtered = getFilteredBooks();
+
+  if (filtered.length === 0) {
+    emptyEl.style.display = 'block'; gridEl.style.display = 'none'; listEl.style.display = 'none';
+    const msg = document.getElementById('emptyMsg');
+    if (msg) msg.textContent = search ? 'No results for "' + search + '"' : 'No items in this category yet.';
+    updateStats(); return;
+  }
+  emptyEl.style.display = 'none';
+  if (currentView === 'grid') {
+    gridEl.style.display = 'grid'; listEl.style.display = 'none';
+    filtered.forEach((book, i) => gridEl.appendChild(createGridCard(book, i)));
+  } else {
+    gridEl.style.display = 'none'; listEl.style.display = 'block';
+    filtered.forEach((book, i) => listEl.appendChild(createListItem(book, i)));
+  }
+  updateStats();
+}
+
 // ── Hierarchical Library navigation ───────────────────────────
 function renderFolderChips() {
-  const bar = document.getElementById('folderChipsBar'); if (!bar) return;
-  bar.innerHTML = ''; bar.style.display = 'block';
-  const nav = document.createElement('div'); nav.className = 'library-category-nav';
-  const breadcrumb = document.createElement('div'); breadcrumb.className = 'library-breadcrumb';
-  const home = document.createElement('button'); home.className = 'breadcrumb-btn'; home.textContent = '📚 Library'; home.onclick = () => { currentFolder='all'; currentSubFolder='all'; renderBooks(); }; breadcrumb.appendChild(home);
-  if (currentFolder !== 'all') getFolderPath(currentFolder).forEach(f => { const sep=document.createElement('span'); sep.className='breadcrumb-sep'; sep.textContent='›'; breadcrumb.appendChild(sep); const b=document.createElement('button'); b.className='breadcrumb-btn'; b.textContent=f.id; b.onclick=()=>{currentFolder=f.id;currentSubFolder='all';renderBooks();}; breadcrumb.appendChild(b); });
-  nav.appendChild(breadcrumb);
-  const title=document.createElement('div'); title.className='library-category-title'; title.textContent=currentFolder==='all'?'Categories':(getFolderPath(currentFolder).at(-1)?.id||'Category'); nav.appendChild(title);
-  const folders=currentFolder==='all'?getTopLevelFolders():getChildFolders(currentFolder); const grid=document.createElement('div'); grid.className='library-category-grid';
-  folders.forEach(f=>{ const descendants=[f.id,...getDescendantIds(f.id)]; const count=allBooks.filter(b=>descendants.includes(b.category)).length; const card=document.createElement('button'); card.className='library-category-card'; card.innerHTML=`<span class="library-category-icon">📁</span><span class="library-category-name">${escapeHtml(f.id)}</span><span class="library-category-count">${count} items</span><span class="library-category-arrow">›</span>`; card.onclick=()=>{currentFolder=f.id;currentSubFolder='all';renderBooks();}; grid.appendChild(card); });
-  if(folders.length) nav.appendChild(grid); else if(currentFolder!=='all'){const empty=document.createElement('div');empty.className='library-category-empty';empty.textContent='No sub-categories here. Items in this category are shown below.';nav.appendChild(empty);}
-  if(currentFolder!=='all'){const label=document.createElement('div');label.className='library-category-items-label';label.textContent=`${getFilteredBooks().length} item${getFilteredBooks().length===1?'':'s'} in this category${getChildFolders(currentFolder).length?' and its sub-categories':''}`;nav.appendChild(label);}
-  bar.appendChild(nav);
+  const bar = document.getElementById('folderChipsBar');
+  if (!bar) return;
+  bar.style.display = 'flex'; bar.innerHTML = '';
+
+  const crumb = document.createElement('div');
+  crumb.className = 'folder-chip-row';
+  const all = document.createElement('button');
+  all.className = 'folder-chip' + (currentFolder === 'all' ? ' active' : '');
+  all.innerHTML = '📚 Library <span class="chip-count">' + allBooks.length + '</span>';
+  all.onclick = () => { currentFolder = 'all'; currentSubFolder = 'all'; renderBooks(); };
+  crumb.appendChild(all);
+
+  if (currentFolder !== 'all') {
+    getFolderPath(currentFolder).forEach(f => {
+      const b = document.createElement('button');
+      b.className = 'folder-chip' + (f.id === currentFolder ? ' active' : '');
+      b.textContent = '› ' + f.id;
+      b.onclick = () => { currentFolder = f.id; currentSubFolder = 'all'; renderBooks(); };
+      crumb.appendChild(b);
+    });
+  }
+  bar.appendChild(crumb);
+
+  const children = currentFolder === 'all' ? getTopLevelFolders() : getChildFolders(currentFolder);
+  if (children.length) {
+    const row = document.createElement('div');
+    row.className = 'folder-chip-row sub-row';
+    children.forEach(f => {
+      const chip = document.createElement('button');
+      chip.className = 'folder-chip sub';
+      chip.innerHTML = '📁 ' + escapeHtml(f.id) + ' <span class="chip-count">' + getFolderBookCount(f.id) + '</span>';
+      chip.onclick = () => { currentFolder = f.id; currentSubFolder = 'all'; renderBooks(); };
+      row.appendChild(chip);
+    });
+    bar.appendChild(row);
+  }
 }
 
 // ── Grid Card — fully DOM-built to avoid innerHTML+= wiping nodes ─

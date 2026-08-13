@@ -190,59 +190,121 @@ async function deleteUser(uid) {
 }
 
 // ✏️ EDIT SECTION (Upload, Select/Bulk mode, Category management)
-
-// ── Category management (unlimited hierarchy) ──────────────────
-function escapeJs(value) { return String(value).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'\\r'); }
-function getFolderDepth(id) { let d=0, cur=allFolders.find(f=>f.id===id), seen=new Set(); while(cur && cur.parent && !seen.has(cur.id)){seen.add(cur.id);d++;cur=allFolders.find(f=>f.id===cur.parent);} return d; }
-function getDescendantIdsAdmin(id){ const out=[]; const walk=x=>getChildFolders(x).forEach(c=>{out.push(c.id);walk(c.id);}); walk(id); return out; }
-function renderFolderAdminTree(folders, allBooksData, depth=0) {
-  return folders.map(f=>{
-    const descendants=[f.id,...getDescendantIdsAdmin(f.id)];
-    const count=allBooksData.filter(b=>descendants.includes(b.category)).length;
-    const safe=escapeJs(f.id);
-    const children=getChildFolders(f.id);
-    return `<div class="folder-card" style="margin-left:${Math.min(depth,6)*18}px">
-      <div class="folder-card-header"><div class="folder-card-left"><span class="folder-card-icon">📁</span><div class="folder-card-meta"><span class="folder-card-name">${escapeHtml(f.id)}</span><span class="folder-card-count">${count} items${children.length?' · '+children.length+' direct sub-categories':''}</span></div></div>
-      <div class="folder-card-actions">${f.id==='General'?'':`<button class="btn btn-ghost btn-sm" onclick="openCategoryModal('${safe}')">➕ Sub</button><button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${safe}')">✏ Rename</button><button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${safe}')">🗑</button>`}</div></div>
-      ${children.length?renderFolderAdminTree(children,allBooksData,depth+1):''}</div>`;
+function escapeAttr(value) { return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function getDescendantFolderIdsAdmin(parentId) {
+  const ids = [parentId];
+  const walk = id => getChildFolders(id).forEach(c => { ids.push(c.id); walk(c.id); });
+  walk(parentId); return ids;
+}
+function renderAdminFolderTree(folders, booksData, parentId, depth=0) {
+  return folders.filter(f => (f.parent || null) === (parentId || null)).map(f => {
+    const descendants = getDescendantFolderIdsAdmin(f.id);
+    const count = booksData.filter(b => descendants.includes(b.category)).length;
+    const safe = escapeAttr(f.id);
+    const children = renderAdminFolderTree(folders, booksData, f.id, depth + 1);
+    const isGeneral = f.id === 'General';
+    return `<div class="folder-card" style="margin-left:${Math.min(depth,6)*10}px">
+      <div class="folder-card-header">
+        <div class="folder-card-left"><span class="folder-card-icon">📁</span><div class="folder-card-meta">
+          <span class="folder-card-name">${escapeHtml(f.id)}</span>
+          <span class="folder-card-count">${count} items${children ? ' · child categories' : ''}</span>
+        </div></div>
+        <div class="folder-card-actions">
+          ${isGeneral ? '' : `<button class="btn btn-ghost btn-sm" onclick="openCategoryModal('${safe}')">➕ Sub</button>
+          <button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${safe}')">✏ Rename</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${safe}')">🗑</button>`}
+        </div>
+      </div>${children ? `<div class="folder-card-children">${children}</div>` : ''}
+    </div>`;
   }).join('');
 }
-
 async function loadFoldersPane() {
-  const el=document.getElementById('adminPane_folders');
-  el.innerHTML='<div class="empty-admin"><div class="spinner"></div><p>Loading categories...</p></div>';
+  const el = document.getElementById('adminPane_folders');
+  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading...</p></div>';
   try {
-    const [fSnap,bSnap]=await Promise.all([db.collection('folders').get(),db.collection('books').get()]);
-    allFolders=fSnap.docs.map(d=>({id:d.id,parent:d.data().parent||null}));
-    const books=bSnap.docs.map(d=>d.data());
-    let html=`<div class="admin-section" style="margin-bottom:16px"><h4 style="margin-bottom:10px">Content Tools</h4><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="closeAdminPanel();openUploadModal();">⬆ Upload Book</button><button class="btn btn-ghost btn-sm" id="bulkToggleBtn" onclick="toggleBulkMode()"><i class="bx bx-checkbox" id="bulkToggleIcon" style="vertical-align:middle"></i><span id="bulkToggleLabel">Select / Edit Mode</span></button></div><p class="muted" style="font-size:.72rem;margin-top:8px">Create as many category levels as you need. Example: Software → Windows → Apps.</p></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h4 style="margin:0">Manage Categories</h4><button class="btn btn-primary btn-sm" onclick="openCategoryModal()">➕ New Category</button></div>`;
-    const roots=getTopLevelFolders(); html += roots.length?renderFolderAdminTree(roots,books):'<p class="muted">No categories created yet. Start with Software, Entertainment or Archive.</p>';
-    el.innerHTML=html;
-    const label=document.getElementById('bulkToggleLabel'),icon=document.getElementById('bulkToggleIcon'),btn=document.getElementById('bulkToggleBtn'); if(label)label.textContent=bulkMode?'Exit Select / Edit Mode':'Select / Edit Mode'; if(icon)icon.className=bulkMode?'bx bx-x':'bx bx-checkbox'; if(btn)btn.classList.toggle('active-bulk',bulkMode);
-  } catch(e){el.innerHTML=`<div class="empty-admin"><p style="color:var(--red)">Error: ${e.message}</p></div>`;}
+    const [bSnap, fSnap] = await Promise.all([db.collection('books').get(), db.collection('folders').get()]);
+    const allBooksData = bSnap.docs.map(d => d.data());
+    allFolders = fSnap.docs.map(d => ({ id: d.id, parent: d.data().parent || null }));
+    let html = `<div class="admin-section" style="margin-bottom:16px;"><h4 style="margin-bottom:10px;">Content Tools</h4>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" onclick="closeAdminPanel(); openUploadModal();">⬆ Upload Book</button>
+      <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" onclick="toggleBulkMode()"><i class="bx bx-checkbox" id="bulkToggleIcon" style="vertical-align:middle;"></i><span id="bulkToggleLabel">Select / Edit Mode</span></button></div>
+      <p class="muted" style="font-size:.72rem;margin-top:8px;">Select / Edit Mode adds checkboxes and per-item Edit/Delete/Download controls on book cards in the Library.</p></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h4 style="margin:0;">Manage Categories</h4><button class="btn btn-primary btn-sm" onclick="openCategoryModal()">➕ New Category</button></div>`;
+    if (!allFolders.length) html += '<p class="muted">No categories created yet. Click "New Category" to add one.</p>';
+    html += renderAdminFolderTree(allFolders, allBooksData, null);
+    el.innerHTML = html;
+    const btn = document.getElementById('bulkToggleBtn');
+    if (btn) btn.onclick = toggleBulkMode;
+    const label = document.getElementById('bulkToggleLabel'), icon = document.getElementById('bulkToggleIcon');
+    if (label) label.textContent = bulkMode ? 'Exit Select / Edit Mode' : 'Select / Edit Mode';
+    if (icon) icon.className = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
+    if (btn) btn.classList.toggle('active-bulk', bulkMode);
+  } catch(e) { el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error: ${e.message}</p></div>`; }
 }
 
+// ── Category create/rename/delete (unlimited hierarchy) ───────
 function openCategoryModal(prefillParent) {
-  document.getElementById('categoryModalName').value=''; const sel=document.getElementById('categoryModalParent'); sel.innerHTML='<option value="">— Top Level —</option>';
-  const walk=(parentId,depth)=>getChildFolders(parentId).forEach(f=>{const opt=document.createElement('option');opt.value=f.id;opt.textContent='— '.repeat(Math.min(depth,6))+'📁 '+f.id;sel.appendChild(opt);walk(f.id,depth+1);});
-  getTopLevelFolders().filter(f=>f.id!=='General').forEach(f=>{const opt=document.createElement('option');opt.value=f.id;opt.textContent='📁 '+f.id;sel.appendChild(opt);walk(f.id,1);});
-  if(prefillParent){sel.value=prefillParent;document.getElementById('categoryModalTitle').textContent=`New Sub-category under "${prefillParent}"`;}else{document.getElementById('categoryModalTitle').textContent='New Category';}
+  document.getElementById('categoryModalName').value = '';
+  const parentSel = document.getElementById('categoryModalParent');
+  parentSel.innerHTML = '<option value="">— Top Level —</option>';
+  const walk = (parentId, depth) => getChildFolders(parentId).filter(f => f.id !== 'General').forEach(f => {
+    const opt = document.createElement('option'); opt.value = f.id; opt.textContent = '— '.repeat(depth) + f.id; parentSel.appendChild(opt); walk(f.id, depth + 1);
+  });
+  getTopLevelFolders().filter(f => f.id !== 'General').forEach(f => {
+    const opt = document.createElement('option'); opt.value = f.id; opt.textContent = f.id; parentSel.appendChild(opt); walk(f.id, 1);
+  });
+  parentSel.disabled = !!prefillParent;
+  if (prefillParent) parentSel.value = prefillParent;
+  document.getElementById('categoryModalTitle').textContent = prefillParent ? `New Sub-category under "${prefillParent}"` : 'New Category';
   document.getElementById('categoryModalOverlay').classList.add('open');
 }
-function closeCategoryModal(){document.getElementById('categoryModalOverlay').classList.remove('open');}
-async function saveCategoryModal(){
-  const name=document.getElementById('categoryModalName').value.trim(), parent=document.getElementById('categoryModalParent').value||null;
-  if(!name){showToast('Enter a name.','error');return;} if(name==='General'){showToast('"General" is reserved.','error');return;}
-  try{await db.collection('folders').doc(name).set({name,parent,createdAt:firebase.firestore.FieldValue.serverTimestamp()});await logAction(`CATEGORY CREATED: ${name}${parent?' (under '+parent+')':''}`);showToast(`📁 "${name}" created!`,'success');closeCategoryModal();await loadBooks();await loadFoldersPane();}catch(e){showToast('Error: '+e.message,'error');}
+function closeCategoryModal() { document.getElementById('categoryModalOverlay').classList.remove('open'); }
+async function saveCategoryModal() {
+  const name = document.getElementById('categoryModalName').value.trim();
+  const parent = document.getElementById('categoryModalParent').value || null;
+  if (!name) { showToast('Enter a name.', 'error'); return; }
+  if (name === 'General') { showToast('"General" is reserved.', 'error'); return; }
+  if (allFolders.some(f => f.id === name)) { showToast('A category with this name already exists.', 'error'); return; }
+  try {
+    await db.collection('folders').doc(name).set({ name, parent, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await logAction(`CATEGORY CREATED: ${name}${parent ? ' (under ' + parent + ')' : ''}`);
+    showToast(`📁 "${name}" created!`, 'success'); closeCategoryModal(); await loadBooks(); await loadFoldersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
-async function renameCategoryAdmin(oldName){
-  const newName=await showPrompt('Rename Category','Enter new name...',oldName); if(!newName||newName.trim()===oldName)return; const trimmed=newName.trim(); if(trimmed==='General'){showToast('"General" is reserved.','error');return;}
-  try{const batch=db.batch(), descendants=getDescendantIdsAdmin(oldName), node=allFolders.find(f=>f.id===oldName), parent=node?node.parent:null; batch.set(db.collection('folders').doc(trimmed),{name:trimmed,parent:parent||null,createdAt:firebase.firestore.FieldValue.serverTimestamp()}); batch.delete(db.collection('folders').doc(oldName)); descendants.forEach(id=>{const f=allFolders.find(x=>x.id===id); if(f){let p=f.parent;if(p===oldName)p=trimmed; batch.update(db.collection('folders').doc(id),{parent:p});}}); const booksSnap=await db.collection('books').where('category','==',oldName).get(); booksSnap.forEach(doc=>batch.update(doc.ref,{category:trimmed})); await batch.commit(); await logAction(`CATEGORY RENAMED: ${oldName} → ${trimmed}`); showToast(`Renamed to "${trimmed}".`,'success'); await loadBooks(); await loadFoldersPane();}catch(e){showToast('Error: '+e.message,'error');}
+async function renameCategoryAdmin(oldName) {
+  const newName = await showPrompt('Rename Category', 'Enter new name...', oldName);
+  if (!newName || newName.trim() === oldName) return;
+  const trimmedNew = newName.trim();
+  if (!trimmedNew || trimmedNew === 'General') { showToast('Invalid category name.', 'error'); return; }
+  if (allFolders.some(f => f.id === trimmedNew)) { showToast('A category with this name already exists.', 'error'); return; }
+  try {
+    const folderDoc = allFolders.find(f => f.id === oldName);
+    if (!folderDoc) return;
+    const batch = db.batch();
+    batch.set(db.collection('folders').doc(trimmedNew), { name: trimmedNew, parent: folderDoc.parent || null, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    batch.delete(db.collection('folders').doc(oldName));
+    allFolders.filter(f => f.parent === oldName).forEach(c => batch.update(db.collection('folders').doc(c.id), { parent: trimmedNew }));
+    const booksSnap = await db.collection('books').where('category', '==', oldName).get();
+    booksSnap.forEach(doc => batch.update(doc.ref, { category: trimmedNew }));
+    await batch.commit(); await logAction(`CATEGORY RENAMED: ${oldName} → ${trimmedNew}`); showToast(`Renamed to "${trimmedNew}".`, 'success');
+    await loadBooks(); await loadFoldersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
-async function deleteCategoryAdmin(name){
-  const descendants=getDescendantIdsAdmin(name), ids=[name,...descendants], msg=descendants.length?`Delete "${name}" and its ${descendants.length} sub-categories? All items inside will be moved to "General".`:`Delete "${name}"? Its items will be moved to "General".`;
-  if(!await showConfirm('Delete Category',msg))return;
-  try{const batch=db.batch(); ids.forEach(id=>batch.delete(db.collection('folders').doc(id))); for(const id of ids){const snap=await db.collection('books').where('category','==',id).get();snap.forEach(doc=>batch.update(doc.ref,{category:'General'}));} await batch.commit(); await logAction(`CATEGORY DELETED: ${name}${descendants.length?' (+ '+descendants.length+' sub)':''}`); showToast('Category deleted.','success'); await loadBooks(); await loadFoldersPane();}catch(e){showToast('Error: '+e.message,'error');}
+async function deleteCategoryAdmin(name) {
+  const ids = getDescendantFolderIdsAdmin(name);
+  const childrenCount = ids.length - 1;
+  const msg = childrenCount ? `Delete "${name}" and its ${childrenCount} descendant categor${childrenCount === 1 ? 'y' : 'ies'}? All items inside will be moved to "General".` : `Delete "${name}"? Its items will be moved to "General".`;
+  if (!await showConfirm('Delete Category', msg)) return;
+  try {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(db.collection('folders').doc(id)));
+    for (const catId of ids) {
+      const booksSnap = await db.collection('books').where('category', '==', catId).get();
+      booksSnap.forEach(doc => batch.update(doc.ref, { category: 'General' }));
+    }
+    await batch.commit(); await logAction(`CATEGORY DELETED: ${name}${childrenCount ? ' (+ ' + childrenCount + ' descendants)' : ''}`); showToast('Category deleted.', 'success');
+    await loadBooks(); await loadFoldersPane();
+  } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
 // 📜 LOGS

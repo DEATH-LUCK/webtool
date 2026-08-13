@@ -4,7 +4,7 @@
 let currentUser = null;
 let currentRole = 'user';
 let isSuperAdmin = false;
-let appSettings = { maintenanceMode: false, registrationOpen: true };
+let appSettings = { maintenanceMode: false, registrationOpen: true, autoApproveSignups: false };
 
 // ── App Settings (maintenance mode / registration control) ────
 async function loadAppSettings() {
@@ -14,6 +14,7 @@ async function loadAppSettings() {
       const d = doc.data();
       appSettings.maintenanceMode  = d.maintenanceMode === true;
       appSettings.registrationOpen = d.registrationOpen !== false; // default open
+      appSettings.autoApproveSignups = d.autoApproveSignups === true;
     }
   } catch (e) {
     console.error('loadAppSettings error:', e);
