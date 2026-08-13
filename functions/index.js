@@ -15,17 +15,70 @@ async function fetchDriveFile(fileId, range) {
   const headers = {};
   if (range) headers.Range = range;
 
-  const urls = [
-    `https://drive.usercontent.google.com/download?export=download&id=${encodeURIComponent(fileId)}`,
+  // Google Drive can't virus-scan large or unrecognized files (common for the
+  // .apk/.exe/.zip/.mp4 etc. this Library stores) and returns an HTML
+  // "can't scan this file" warning page instead of the file — even to a
+  // public link. We have to follow that warning page's own confirm form to
+  // get the real download, forwarding whatever cookie it sets us.
+  let cookie = '';
+  async function attempt(url) {
+    const res = await fetch(url, {
+      headers: { ...headers, ...(cookie ? { Cookie: cookie } : {}) },
+      redirect: 'follow'
+    });
+    const setCookie = res.headers.get('set-cookie');
+    if (setCookie) cookie = setCookie.split(',').map(c => c.split(';')[0]).join('; ');
+    return res;
+  }
+
+  async function resolveInterstitial(html, fallbackUrl) {
+    // The warning page is either an HTML <form> (older) or a plain link with
+    // a confirm token in the query string (newer). Handle both.
+    const actionMatch  = html.match(/action="([^"]+)"/);
+    const idMatch      = html.match(/name="id" value="([^"]+)"/);
+    const confirmMatch = html.match(/name="confirm" value="([^"]+)"/) || html.match(/confirm=([0-9A-Za-z_-]+)/);
+    const uuidMatch    = html.match(/name="uuid" value="([^"]+)"/) || html.match(/uuid=([0-9A-Za-z_-]+)/);
+
+    let confirmUrl;
+    if (actionMatch) {
+      const params = new URLSearchParams();
+      params.set('id', idMatch ? idMatch[1] : fileId);
+      params.set('export', 'download');
+      if (confirmMatch) params.set('confirm', confirmMatch[1]);
+      if (uuidMatch) params.set('uuid', uuidMatch[1]);
+      confirmUrl = actionMatch[1].replace(/&amp;/g, '&') + '?' + params.toString();
+    } else if (confirmMatch) {
+      const params = new URLSearchParams();
+      params.set('id', fileId);
+      params.set('export', 'download');
+      params.set('confirm', confirmMatch[1]);
+      if (uuidMatch) params.set('uuid', uuidMatch[1]);
+      confirmUrl = fallbackUrl.split('?')[0] + '?' + params.toString();
+    }
+    if (!confirmUrl) return null;
+    return attempt(confirmUrl);
+  }
+
+  const baseUrls = [
+    `https://drive.usercontent.google.com/download?export=download&confirm=t&id=${encodeURIComponent(fileId)}`,
     `https://drive.google.com/uc?export=download&id=${encodeURIComponent(fileId)}`
   ];
 
-  for (const url of urls) {
-    const upstream = await fetch(url, {headers, redirect:'follow'});
-    const type = (upstream.headers.get('content-type') || '').toLowerCase();
-    if (upstream.ok || upstream.status === 206) {
-      // Never pass a Google Drive HTML page through to the browser as if it were the file.
-      if (!type.includes('text/html')) return upstream;
+  for (const url of baseUrls) {
+    let res = await attempt(url);
+    let type = (res.headers.get('content-type') || '').toLowerCase();
+
+    if ((res.ok || res.status === 206) && !type.includes('text/html')) return res;
+
+    if (type.includes('text/html')) {
+      try {
+        const html = await res.text();
+        const retried = await resolveInterstitial(html, url);
+        if (retried) {
+          const retryType = (retried.headers.get('content-type') || '').toLowerCase();
+          if ((retried.ok || retried.status === 206) && !retryType.includes('text/html')) return retried;
+        }
+      } catch (e) { /* try next base URL */ }
     }
   }
   throw new Error('Google Drive returned a web page instead of the requested file. Make sure the uploaded file is publicly readable.');

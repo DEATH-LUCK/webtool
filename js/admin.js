@@ -47,26 +47,71 @@ async function loadDashboard() {
     const users = uSnap.docs.map(d => d.data());
     const pending = users.filter(u => u.status === 'pending').length;
     const banned = users.filter(u => u.status === 'banned').length;
+
+    const books = bSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(b => b.libraryScope !== 'library');
+    const pdfCount   = books.filter(b => b.fileType === 'pdf').length;
+    const epubCount  = books.filter(b => b.fileType === 'epub').length;
+    const otherCount = books.length - pdfCount - epubCount;
+    const pct = (n) => books.length ? Math.round((n / books.length) * 100) : 0;
+
+    const recent = [...books]
+      .filter(b => b.uploadedAt?.toDate)
+      .sort((a, b) => b.uploadedAt.toMillis() - a.uploadedAt.toMillis())
+      .slice(0, 5);
     
     el.innerHTML = `
       <div class="dash-stats-grid">
         <div class="dash-stat-card">
+          <div class="dash-stat-icon">👥</div>
           <div class="dash-stat-value">${uSnap.size}</div>
           <div class="dash-stat-label">Total Users</div>
         </div>
         <div class="dash-stat-card">
+          <div class="dash-stat-icon">📚</div>
           <div class="dash-stat-value">${bSnap.size}</div>
           <div class="dash-stat-label">Total Books</div>
         </div>
         <div class="dash-stat-card" style="border-color:var(--amber);">
+          <div class="dash-stat-icon">⏳</div>
           <div class="dash-stat-value">${pending}</div>
           <div class="dash-stat-label">Pending Approval</div>
         </div>
         <div class="dash-stat-card" style="border-color:var(--red);">
+          <div class="dash-stat-icon">🚫</div>
           <div class="dash-stat-value">${banned}</div>
           <div class="dash-stat-label">Banned</div>
         </div>
       </div>
+
+      ${books.length ? `
+      <div class="dash-section">
+        <div class="dash-section-title">Library Breakdown</div>
+        <div class="dash-type-bar">
+          ${pdfCount   ? `<div class="dash-type-seg seg-pdf" style="width:${pct(pdfCount)}%"></div>` : ''}
+          ${epubCount  ? `<div class="dash-type-seg seg-epub" style="width:${pct(epubCount)}%"></div>` : ''}
+          ${otherCount ? `<div class="dash-type-seg seg-other" style="width:${pct(otherCount)}%"></div>` : ''}
+        </div>
+        <div class="dash-type-legend">
+          <span class="leg-dot" style="background:var(--amber)"></span>PDF (${pdfCount})
+          &nbsp;&nbsp;<span class="leg-dot" style="background:#5a9a6a"></span>EPUB (${epubCount})
+          &nbsp;&nbsp;<span class="leg-dot" style="background:var(--cream3)"></span>Other (${otherCount})
+        </div>
+      </div>` : ''}
+
+      ${recent.length ? `
+      <div class="dash-section">
+        <div class="dash-section-title">Recently Added</div>
+        <div class="dash-recent-list">
+          ${recent.map(b => `
+            <div class="dash-recent-item">
+              <span style="font-size:1.1rem">${getFileIcon(b.fileType)}</span>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(b.title || 'Untitled')}</div>
+                <div style="font-size:.68rem;color:var(--cream3);">${escapeHtml(b.category || 'General')} · ${b.uploadedAt.toDate().toLocaleDateString('en-US',{day:'2-digit',month:'short'})}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
     `;
   } catch (e) {
     el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error loading dashboard: ${e.message}</p></div>`;
