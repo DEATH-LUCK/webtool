@@ -44,7 +44,7 @@
             onkeydown="if(event.key==='Enter') handleSignIn()">
         </div>
         <div style="text-align:right;margin-bottom:20px;">
-          <a href="#" onclick="handleForgotPassword(); return false;" style="color:var(--amber);font-size:0.8rem;text-decoration:none;opacity:0.8;transition:0.2s;">Forgot Password?</a>
+          <a href="javascript:void(0)" onclick="handleForgotPassword(); return false;" style="color:var(--amber);font-size:0.8rem;text-decoration:none;opacity:0.8;transition:0.2s;">Forgot Password?</a>
         </div>
         <div class="auth-buttons">
           <button class="btn btn-primary" onclick="handleSignIn()" style="width:100%;">Sign In</button>
@@ -99,21 +99,21 @@
     </div>
     <ul class="nav-list">
       <li>
-        <a href="#" onclick="closeReader(); closeSidebarMobile(); return false;">
+        <a href="javascript:void(0)" onclick="closeReader(); closeSidebarMobile(); return false;">
           <i class='bx bx-grid-alt'></i>
           <span class="links_name">Library</span>
         </a>
         <span class="tooltip">Library</span>
       </li>
       <li id="navLiAdmin" style="display:none">
-        <a href="#" onclick="openAdminPanel(); closeSidebarMobile(); return false;">
+        <a href="javascript:void(0)" onclick="openAdminPanel(); closeSidebarMobile(); return false;">
           <i class='bx bx-shield-quarter'></i>
           <span class="links_name">Admin Panel</span>
         </a>
         <span class="tooltip">Admin Panel</span>
       </li>
       <li>
-        <a href="#" id="themeToggleBtn" onclick="toggleTheme(); return false;">
+        <a href="javascript:void(0)" id="themeToggleBtn" onclick="toggleTheme(); return false;">
           <i class='bx bx-moon' id="themeToggleIcon"></i>
           <span class="links_name" id="themeToggleLabel">Dark Mode</span>
         </a>
@@ -259,7 +259,7 @@
         <button class="btn btn-ghost btn-sm" id="nextDesktop" onclick="changePage(1)" disabled>▶</button>
         <button class="btn btn-ghost btn-sm" onclick="changeZoom(-0.15)">−</button>
         <button class="btn btn-ghost btn-sm" onclick="changeZoom(0.15)">+</button>
-        <a class="btn btn-ghost btn-sm reader-download-btn" href="#" target="_blank">⬇ Download</a>
+        <a class="btn btn-ghost btn-sm reader-download-btn" href="javascript:void(0)" target="_blank">⬇ Download</a>
       </div>
     </div>
 
@@ -280,7 +280,7 @@
       <span class="mob-page" id="pageInfoMobile">1/1</span>
       <button class="mob-btn mob-btn-zoom" onclick="changeZoom(0.2)">+</button>
       <button class="mob-btn mob-btn-nav" id="nextMobile" onclick="changePage(1)" disabled>▶</button>
-      <a class="mob-btn reader-download-btn" href="#" target="_blank">⬇</a>
+      <a class="mob-btn reader-download-btn" href="javascript:void(0)" target="_blank">⬇</a>
     </div>
   </div>
   </div>
