@@ -28,7 +28,7 @@ function showAdminTab(tab, btn) {
   if (tab === 'dash') loadDashboard();
   if (tab === 'users') loadUsersPane();
   if (tab === 'folders') loadFoldersPane();
-  if (tab === 'library') loadSeparateLibraryAdminPane();
+  if (tab === 'library') loadLibraryPane();
   if (tab === 'logs') loadLogsPane();
   if (tab === 'settings') loadSettingsPane();
 }
@@ -191,122 +191,185 @@ async function deleteUser(uid) {
 }
 
 // ✏️ EDIT SECTION (Upload, Select/Bulk mode, Category management)
-function escapeAttr(value) { return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
-function getDescendantFolderIdsAdmin(parentId) {
-  const ids = [parentId];
-  const walk = id => getChildFolders(id).forEach(c => { ids.push(c.id); walk(c.id); });
-  walk(parentId); return ids;
-}
-function renderAdminFolderTree(folders, booksData, parentId, depth=0) {
-  return folders.filter(f => (f.parent || null) === (parentId || null)).map(f => {
-    const descendants = getDescendantFolderIdsAdmin(f.id);
-    const count = booksData.filter(b => descendants.includes(b.category)).length;
-    const safe = escapeAttr(f.id);
-    const children = renderAdminFolderTree(folders, booksData, f.id, depth + 1);
-    const isGeneral = f.id === 'General';
-    return `<div class="folder-card" style="margin-left:${Math.min(depth,6)*10}px">
-      <div class="folder-card-header">
-        <div class="folder-card-left"><span class="folder-card-icon">📁</span><div class="folder-card-meta">
-          <span class="folder-card-name">${escapeHtml(f.id)}</span>
-          <span class="folder-card-count">${count} items${children ? ' · child categories' : ''}</span>
-        </div></div>
-        <div class="folder-card-actions">
-          ${isGeneral ? '' : `<button class="btn btn-ghost btn-sm" onclick="openCategoryModal('${safe}')">➕ Sub</button>
-          <button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${safe}')">✏ Rename</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${safe}')">🗑</button>`}
-        </div>
-      </div>${children ? `<div class="folder-card-children">${children}</div>` : ''}
-    </div>`;
-  }).join('');
-}
 async function loadFoldersPane() {
   const el = document.getElementById('adminPane_folders');
-  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading...</p></div>';
+  el.innerHTML = '<div class="empty-admin"><div class="spinner"></div><p>Loading...</p></div>'; // Show spinner
+  
   try {
-    const [bSnap, fSnap] = await Promise.all([db.collection('books').get(), db.collection('folders').get()]);
-    const allBooksData = bSnap.docs.map(d => d.data());
-    allFolders = fSnap.docs
-      .filter(d => d.data().scope !== 'separate-library')
-      .map(d => ({ id: d.id, parent: d.data().parent || null }));
-    let html = `<div class="admin-section" style="margin-bottom:16px;"><h4 style="margin-bottom:10px;">Content Tools</h4>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn btn-primary btn-sm" onclick="closeAdminPanel(); openUploadModal();">⬆ Upload Book</button>
-      <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" onclick="toggleBulkMode()"><i class="bx bx-checkbox" id="bulkToggleIcon" style="vertical-align:middle;"></i><span id="bulkToggleLabel">Select / Edit Mode</span></button></div>
-      <p class="muted" style="font-size:.72rem;margin-top:8px;">Select / Edit Mode adds checkboxes and per-item Edit/Delete/Download controls on book cards in the Library.</p></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><h4 style="margin:0;">Manage Categories</h4><button class="btn btn-primary btn-sm" onclick="openCategoryModal()">➕ New Category</button></div>`;
-    if (!allFolders.length) html += '<p class="muted">No categories created yet. Click "New Category" to add one.</p>';
-    html += renderAdminFolderTree(allFolders, allBooksData, null);
+    const [bSnap, fSnap] = await Promise.all([
+      db.collection('books').get(),
+      db.collection('folders').get()
+    ]);
+    const allBooksData = bSnap.docs.filter(d => d.data().libraryScope !== 'library').map(d => d.data());
+    allFolders = fSnap.docs.filter(d => d.data().scope !== 'library').map(d => ({ id: d.id, parent: d.data().parent || null })); // keep cache fresh
+
+    let html = `
+      <div class="admin-section" style="margin-bottom:16px;">
+        <h4 style="margin-bottom:10px;">Content Tools</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="closeAdminPanel(); openUploadModal();">⬆ Upload Book</button>
+          <button class="btn btn-ghost btn-sm" id="bulkToggleBtn" onclick="toggleBulkMode()">
+            <i class="bx bx-checkbox" id="bulkToggleIcon" style="vertical-align:middle;"></i>
+            <span id="bulkToggleLabel">Select / Edit Mode</span>
+          </button>
+        </div>
+        <p class="muted" style="font-size:.72rem;margin-top:8px;">Select / Edit Mode adds checkboxes and per-item Edit/Delete/Download controls on book cards in the Library — close this panel after enabling it to use them.</p>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <h4 style="margin:0;">Manage Categories</h4>
+        <button class="btn btn-primary btn-sm" onclick="openCategoryModal()">➕ New Category</button>
+      </div>
+    `;
+    const tops = getTopLevelFolders();
+    if (tops.length === 0) {
+      html += '<p class="muted">No categories created yet. Click "New Category" to add one — e.g. Books, Software, Music &amp; Videos.</p>';
+    }
+
+    tops.forEach(f => {
+      const children = getChildFolders(f.id);
+      const idsInGroup = [f.id, ...children.map(c => c.id)];
+      const totalCount = allBooksData.filter(b => idsInGroup.includes(b.category)).length;
+      const isGeneral = f.id === 'General';
+      const safeId = f.id.replace(/'/g, "\\'");
+      html += `
+        <div class="folder-card">
+          <div class="folder-card-header">
+            <div class="folder-card-left">
+              <span class="folder-card-icon">📁</span>
+              <div class="folder-card-meta">
+                <span class="folder-card-name">${escapeHtml(f.id)}</span>
+                <span class="folder-card-count">${totalCount} items${children.length ? ' · ' + children.length + ' sub-categories' : ''}</span>
+              </div>
+            </div>
+            <div class="folder-card-actions">
+              ${isGeneral ? '' : `
+                <button class="btn btn-ghost btn-sm" onclick="openCategoryModal('${safeId}')">➕ Sub</button>
+                <button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${safeId}')">✏ Rename</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${safeId}')">🗑</button>
+              `}
+            </div>
+          </div>
+          ${children.length ? `<div class="folder-card-children">` + children.map(c => {
+            const cCount = allBooksData.filter(b => b.category === c.id).length;
+            const cSafe = c.id.replace(/'/g, "\\'");
+            return `
+              <div class="folder-subrow">
+                <span class="folder-subrow-name">↳ ${escapeHtml(c.id)}</span>
+                <span class="folder-card-count">${cCount} items</span>
+                <div class="folder-card-actions">
+                  <button class="btn btn-ghost btn-sm" onclick="renameCategoryAdmin('${cSafe}')">✏</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteCategoryAdmin('${cSafe}')">🗑</button>
+                </div>
+              </div>`;
+          }).join('') + `</div>` : ''}
+        </div>
+      `;
+    });
     el.innerHTML = html;
-    const btn = document.getElementById('bulkToggleBtn');
-    if (btn) btn.onclick = toggleBulkMode;
-    const label = document.getElementById('bulkToggleLabel'), icon = document.getElementById('bulkToggleIcon');
+
+    // Sync the Select/Edit Mode button's visual state with the current bulk mode
+    const label = document.getElementById('bulkToggleLabel');
+    const icon  = document.getElementById('bulkToggleIcon');
+    const btn   = document.getElementById('bulkToggleBtn');
     if (label) label.textContent = bulkMode ? 'Exit Select / Edit Mode' : 'Select / Edit Mode';
-    if (icon) icon.className = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
-    if (btn) btn.classList.toggle('active-bulk', bulkMode);
-  } catch(e) { el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error: ${e.message}</p></div>`; }
+    if (icon)  icon.className    = bulkMode ? 'bx bx-x' : 'bx bx-checkbox';
+    if (btn)   btn.classList.toggle('active-bulk', bulkMode);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-admin"><p style="color:var(--red);">Error: ${e.message}</p></div>`;
+  }
 }
 
-// ── Category create/rename/delete (unlimited hierarchy) ───────
+// ── Category create/rename/delete (2-level: category → sub-category) ──
 function openCategoryModal(prefillParent) {
   document.getElementById('categoryModalName').value = '';
   const parentSel = document.getElementById('categoryModalParent');
   parentSel.innerHTML = '<option value="">— Top Level —</option>';
-  const walk = (parentId, depth) => getChildFolders(parentId).filter(f => f.id !== 'General').forEach(f => {
-    const opt = document.createElement('option'); opt.value = f.id; opt.textContent = '— '.repeat(depth) + f.id; parentSel.appendChild(opt); walk(f.id, depth + 1);
+  getTopLevelFolders().forEach(f => {
+    if (f.id === 'General') return;
+    const opt = document.createElement('option');
+    opt.value = f.id; opt.textContent = f.id;
+    parentSel.appendChild(opt);
   });
-  getTopLevelFolders().filter(f => f.id !== 'General').forEach(f => {
-    const opt = document.createElement('option'); opt.value = f.id; opt.textContent = f.id; parentSel.appendChild(opt); walk(f.id, 1);
-  });
-  parentSel.disabled = !!prefillParent;
-  if (prefillParent) parentSel.value = prefillParent;
-  document.getElementById('categoryModalTitle').textContent = prefillParent ? `New Sub-category under "${prefillParent}"` : 'New Category';
+  if (prefillParent) {
+    parentSel.value = prefillParent;
+    parentSel.disabled = true;
+    document.getElementById('categoryModalTitle').textContent = `New Sub-category under "${prefillParent}"`;
+  } else {
+    parentSel.disabled = false;
+    document.getElementById('categoryModalTitle').textContent = 'New Category';
+  }
   document.getElementById('categoryModalOverlay').classList.add('open');
 }
-function closeCategoryModal() { document.getElementById('categoryModalOverlay').classList.remove('open'); }
+function closeCategoryModal() {
+  document.getElementById('categoryModalOverlay').classList.remove('open');
+}
 async function saveCategoryModal() {
   const name = document.getElementById('categoryModalName').value.trim();
   const parent = document.getElementById('categoryModalParent').value || null;
   if (!name) { showToast('Enter a name.', 'error'); return; }
   if (name === 'General') { showToast('"General" is reserved.', 'error'); return; }
-  if (allFolders.some(f => f.id === name)) { showToast('A category with this name already exists.', 'error'); return; }
   try {
-    await db.collection('folders').doc(name).set({ name, parent, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection('folders').doc(name).set({
+      name, parent, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     await logAction(`CATEGORY CREATED: ${name}${parent ? ' (under ' + parent + ')' : ''}`);
-    showToast(`📁 "${name}" created!`, 'success'); closeCategoryModal(); await loadBooks(); await loadFoldersPane();
+    showToast(`📁 "${name}" created!`, 'success');
+    closeCategoryModal();
+    await loadBooks();
+    await loadFoldersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
+
 async function renameCategoryAdmin(oldName) {
-  const newName = await showPrompt('Rename Category', 'Enter new name...', oldName);
+  const newName = await showPrompt("Rename Category", "Enter new name...", oldName);
   if (!newName || newName.trim() === oldName) return;
   const trimmedNew = newName.trim();
-  if (!trimmedNew || trimmedNew === 'General') { showToast('Invalid category name.', 'error'); return; }
-  if (allFolders.some(f => f.id === trimmedNew)) { showToast('A category with this name already exists.', 'error'); return; }
   try {
     const folderDoc = allFolders.find(f => f.id === oldName);
-    if (!folderDoc) return;
+    const parent = folderDoc ? folderDoc.parent : null;
+    const children = getChildFolders(oldName); // only relevant if oldName is a top-level category
+
     const batch = db.batch();
-    batch.set(db.collection('folders').doc(trimmedNew), { name: trimmedNew, parent: folderDoc.parent || null, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    batch.set(db.collection('folders').doc(trimmedNew), {
+      name: trimmedNew, parent: parent || null, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
     batch.delete(db.collection('folders').doc(oldName));
-    allFolders.filter(f => f.parent === oldName).forEach(c => batch.update(db.collection('folders').doc(c.id), { parent: trimmedNew }));
+    children.forEach(c => batch.update(db.collection('folders').doc(c.id), { parent: trimmedNew }));
+
     const booksSnap = await db.collection('books').where('category', '==', oldName).get();
     booksSnap.forEach(doc => batch.update(doc.ref, { category: trimmedNew }));
-    await batch.commit(); await logAction(`CATEGORY RENAMED: ${oldName} → ${trimmedNew}`); showToast(`Renamed to "${trimmedNew}".`, 'success');
-    await loadBooks(); await loadFoldersPane();
+
+    await batch.commit();
+    await logAction(`CATEGORY RENAMED: ${oldName} → ${trimmedNew}`);
+    showToast(`Renamed to "${trimmedNew}".`, 'success');
+    await loadBooks();
+    await loadFoldersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
+
 async function deleteCategoryAdmin(name) {
-  const ids = getDescendantFolderIdsAdmin(name);
-  const childrenCount = ids.length - 1;
-  const msg = childrenCount ? `Delete "${name}" and its ${childrenCount} descendant categor${childrenCount === 1 ? 'y' : 'ies'}? All items inside will be moved to "General".` : `Delete "${name}"? Its items will be moved to "General".`;
-  if (!await showConfirm('Delete Category', msg)) return;
+  const children = getChildFolders(name);
+  const msg = children.length > 0
+    ? `Delete "${name}" and its ${children.length} sub-categor${children.length > 1 ? 'ies' : 'y'}? All items inside will be moved to "General".`
+    : `Delete "${name}"? Its items will be moved to "General".`;
+  if (!await showConfirm("Delete Category", msg)) return;
   try {
     const batch = db.batch();
-    ids.forEach(id => batch.delete(db.collection('folders').doc(id)));
-    for (const catId of ids) {
+    batch.delete(db.collection('folders').doc(name));
+    children.forEach(c => batch.delete(db.collection('folders').doc(c.id)));
+
+    const idsToClear = [name, ...children.map(c => c.id)];
+    for (const catId of idsToClear) {
       const booksSnap = await db.collection('books').where('category', '==', catId).get();
       booksSnap.forEach(doc => batch.update(doc.ref, { category: 'General' }));
     }
-    await batch.commit(); await logAction(`CATEGORY DELETED: ${name}${childrenCount ? ' (+ ' + childrenCount + ' descendants)' : ''}`); showToast('Category deleted.', 'success');
-    await loadBooks(); await loadFoldersPane();
+
+    await batch.commit();
+    await logAction(`CATEGORY DELETED: ${name}${children.length ? ' (+ ' + children.length + ' sub)' : ''}`);
+    showToast('Category deleted.', 'success');
+    await loadBooks();
+    await loadFoldersPane();
   } catch(e) { showToast('Error: ' + e.message, 'error'); }
 }
 
@@ -419,3 +482,50 @@ async function logAction(message) {
     });
   } catch(e) {}
 }
+
+// ============================================================
+// 📚 SEPARATE LIBRARY MANAGEMENT — not the Book Library editor
+// ============================================================
+let libraryAdminFolders = [];
+let libraryUploadFile = null;
+
+async function loadLibraryPane() {
+  const el=document.getElementById('adminPane_library');
+  if(!el) return;
+  el.innerHTML='<div class="empty-admin"><div class="spinner"></div><p>Loading Library...</p></div>';
+  try {
+    await ensureLibraryDefaults();
+    const snap=await db.collection('folders').where('scope','==','library').get();
+    libraryAdminFolders=snap.docs.map(d=>({id:d.id,...d.data()}));
+    renderLibraryAdminPane();
+  } catch(e) { el.innerHTML=`<div class="empty-admin"><p style="color:var(--red)">Error loading Library: ${escapeHtml(e.message)}</p></div>`; }
+}
+function libraryAdminChildren(parent){return libraryAdminFolders.filter(f=>(f.parent||null)===(parent||null)).sort((a,b)=>(a.name||a.id).localeCompare(b.name||b.id));}
+function renderLibraryAdminPane(){
+  const el=document.getElementById('adminPane_library'); if(!el)return;
+  const opts=(nodes,depth=0)=>nodes.map(f=>`<option value="${f.id}">${'— '.repeat(depth)}${f.icon||'📁'} ${escapeHtml(f.name||f.id)}</option>`).join('') + nodes.flatMap(f=>opts(libraryAdminChildren(f.id),depth+1)).join('');
+  const tree=(nodes,depth=0)=>nodes.map(f=>`<div class="folder-card" style="margin-left:${Math.min(depth,4)*14}px"><div class="folder-card-header"><div class="folder-card-left"><span class="folder-card-icon">${f.icon||'📁'}</span><div class="folder-card-meta"><span class="folder-card-name">${escapeHtml(f.name||f.id)}</span><span class="folder-card-count">${libraryAdminChildren(f.id).length} sub-categories</span></div></div><div class="folder-card-actions"><button class="btn btn-ghost btn-sm" onclick="addLibraryCategory('${f.id}')">➕ Sub</button><button class="btn btn-ghost btn-sm" onclick="renameLibraryCategory('${f.id}')">✏ Rename</button><button class="btn btn-danger btn-sm" onclick="deleteLibraryCategory('${f.id}')">🗑</button></div></div></div>${tree(libraryAdminChildren(f.id),depth+1)}`).join('');
+  el.innerHTML=`<div class="admin-section"><h4>📚 Library Content</h4><p class="muted" style="font-size:.74rem">This is the separate Library page. The existing Book Library and its categories are not changed.</p><div class="library-admin-upload"><div class="form-group"><label class="form-label">Category</label><select id="libraryUploadCategory"><option value="">Select category</option>${opts(libraryAdminChildren(null))}</select></div><div class="form-group"><label class="form-label">File</label><input id="libraryUploadFile" type="file" accept="*/*" onchange="libraryAdminPickFile(this)"></div><div class="form-group"><label class="form-label">Title</label><input id="libraryUploadTitle" type="text" placeholder="Title"></div><div class="form-group"><label class="form-label">Description / Author (optional)</label><input id="libraryUploadAuthor" type="text" placeholder="Description or author"></div><button class="btn btn-primary" id="libraryUploadBtn" onclick="uploadLibraryItem()">⬆ Upload to Library</button><div id="libraryUploadStatus" class="muted" style="font-size:.72rem;margin-top:8px"></div></div><div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px"><h4 style="margin:0">Manage Library Categories</h4><button class="btn btn-primary btn-sm" onclick="addLibraryCategory(null)">➕ New Category</button></div>${tree(libraryAdminChildren(null))}`;
+}
+function libraryAdminPickFile(input){libraryUploadFile=input.files?.[0]||null; if(libraryUploadFile&&!document.getElementById('libraryUploadTitle').value) document.getElementById('libraryUploadTitle').value=capitalizeWords(libraryUploadFile.name.replace(/\.[^/.]+$/,'').replace(/[-_]/g,' '));}
+async function uploadLibraryItem(){
+  if(!libraryUploadFile){showToast('Please select a file.','error');return;}
+  const category=document.getElementById('libraryUploadCategory').value; if(!category){showToast('Please select a category.','error');return;}
+  const title=document.getElementById('libraryUploadTitle').value.trim()||libraryUploadFile.name;
+  const author=document.getElementById('libraryUploadAuthor').value.trim()||null;
+  const btn=document.getElementById('libraryUploadBtn'); const status=document.getElementById('libraryUploadStatus'); btn.disabled=true;
+  try{
+    status.textContent='Connecting to Google Drive...'; const token=await getGDriveToken();
+    const root=await getOrCreateRootFolder(token); const folder=await getOrCreateSubFolder(token,root,'Library');
+    status.textContent='Uploading...'; const result=await uploadToGDrive(libraryUploadFile,folder,token,p=>status.textContent='Uploading '+p+'%');
+    await db.collection('books').add({title,author,category,fileType:(libraryUploadFile.name.split('.').pop()||'').toLowerCase(),fileSize:libraryUploadFile.size,downloadUrl:result.downloadUrl,viewUrl:result.viewUrl,fileId:result.fileId,coverUrl:null,uploadedBy:currentUser.uid,uploadedAt:firebase.firestore.FieldValue.serverTimestamp(),libraryScope:'library'});
+    status.textContent='Uploaded successfully.'; showToast('Library item uploaded.','success'); libraryUploadFile=null; loadLibraryPane();
+  }catch(e){status.textContent='Upload failed: '+e.message;showToast('Upload failed: '+e.message,'error');}finally{btn.disabled=false;}
+}
+async function addLibraryCategory(parentId){
+  const name=await showPrompt(parentId?'New sub-category':'New Library category','Category name'); if(!name?.trim())return;
+  const siblings=libraryAdminChildren(parentId); const id=libraryFolderDocId([...(parentId?libraryAdminFolders.find(x=>x.id===parentId)?.path||[]:[]),name.trim()]);
+  try{await db.collection('folders').doc(id).set({id,name:name.trim(),icon:'📁',parent:parentId||null,scope:'library',path:[...(parentId?libraryAdminFolders.find(x=>x.id===parentId)?.path||[]:[]),name.trim()],createdAt:firebase.firestore.FieldValue.serverTimestamp()});showToast('Category created.','success');loadLibraryPane();}catch(e){showToast('Error: '+e.message,'error');}
+}
+async function renameLibraryCategory(id){const f=libraryAdminFolders.find(x=>x.id===id);if(!f)return;const name=await showPrompt('Rename Library category',f.name||f.id);if(!name?.trim()||name.trim()===(f.name||f.id))return;try{await db.collection('folders').doc(id).update({name:name.trim()});showToast('Category renamed.','success');loadLibraryPane();}catch(e){showToast('Error: '+e.message,'error');}}
+async function deleteLibraryCategory(id){const f=libraryAdminFolders.find(x=>x.id===id);if(!f)return;if(!await showConfirm('Delete Library category',`Delete ${f.name||id} and its sub-categories?`))return;try{const ids=[id];const q=[id];while(q.length){const p=q.shift();libraryAdminChildren(p).forEach(c=>{ids.push(c.id);q.push(c.id);});}const batch=db.batch();ids.forEach(x=>batch.delete(db.collection('folders').doc(x)));const items=await db.collection('books').where('libraryScope','==','library').get();items.docs.filter(d=>ids.includes(d.data().category)).forEach(d=>batch.delete(d.ref));await batch.commit();showToast('Category deleted.','success');loadLibraryPane();}catch(e){showToast('Error: '+e.message,'error');}}
